@@ -1,0 +1,20 @@
+[project]
+name = "process-insights"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "ibis-framework[exasol]>=10.8.0",
+    "langchain-openai>=0.3.35",
+    "marimo>=0.16.5",
+    "msgspec>=0.19.0",
+    "polars>=1.34.0",
+    "pydantic>=2.12.2",
+    "pyexasol>=1.2.0",
+    "python-dotenv>=1.1.1",
+    "sqlalchemy-exasol>=5.2.0",
+]
+
+[tool.marimo.runtime]
+dotenv = [".env", ".env.testing"]
