@@ -45,6 +45,11 @@ with app.setup:
 
     env = dotenv.dotenv_values('.env')
 
+    ## Certain States
+
+    get_tab, set_tab = mo.state('')
+
+
     ## Create the Database Engine
 
     url = (
@@ -106,7 +111,9 @@ def dropdown__projects_list(list_available_projects):
     first_title = list(projects_dict.keys())[0]
     selected = projects_dict[first_title]
 
-    if DEBUG: print(f"Selected: {first_title} => {selected}")
+    if DEBUG: 
+        print(f"Selected: {first_title} => {selected}")
+
     selected = first_title
 
 
@@ -280,8 +287,6 @@ def ui__filter_groups(
     start_date_fc_b,
     switch_flowchart_orientation,
 ):
-
-    meta_search_input = mo.ui.text(placeholder='Search META Information...', label='Meta-Search', full_width=True)
 
     filter_process_tree = mo.vstack([
                     mo.hstack([switch_flowchart_orientation]),
@@ -503,6 +508,7 @@ def visual_total_statistics(
     ## Default Display - first first tab
 
     statistics= ''
+    print(menu_selected)
 
     if menu_selected == MENU_PROCESS_FLOWCHART or menu_selected == MENU_AI_OVERVIEW:
         statistics = mo.accordion({
@@ -541,35 +547,35 @@ def _(statistics):
     return
 
 
-@app.cell
-def _():
-    get_tab, set_tab = mo.state('')
+@app.function
+# get_tab, set_tab = mo.state('')
 
-    def set_menu(menu: str) -> str:
+def set_menu(menu: str) -> str:
 
-        print(menu)
+    print(menu)
+    print("get_tab():", get_tab())
 
-        if get_tab == '':
-            set_tab('Process - Tree')
+    if get_tab() == '':
+        set_tab('Process - Tree')
 
-        menu_map = {
-            'Process - Tree': MENU_PROCESS_FLOWCHART,                    # 1
-            'Overview by AI': MENU_AI_OVERVIEW,                          # 2
-            'A/B Comparison': MENU_A_B_FLOWCHARTS,                       # 3
-            'Individual Journey Inspection': MENU_INDIVIDUAL_FLOWCHART,  # 4
-            'Selected Statistics': MENU_GRAPHICAL_STATISTICS,            # 5
-            'Settings': MENU_SETTINGS,                                   # 6       
-        }
+    menu_map = {
+        'Process - Tree': MENU_PROCESS_FLOWCHART,                    # 1
+        'Overview by AI': MENU_AI_OVERVIEW,                          # 2
+        'A/B Comparison': MENU_A_B_FLOWCHARTS,                       # 3
+        'Individual Journey Inspection': MENU_INDIVIDUAL_FLOWCHART,  # 4
+        'Selected Statistics': MENU_GRAPHICAL_STATISTICS,            # 5
+        'Settings': MENU_SETTINGS,                                   # 6       
+    }
 
-        res = menu_map.get(menu)
+    #set_tab(menu_map.get(menu))
 
-        return res
-    return get_tab, set_menu
+    res = menu_map.get(menu)
+
+    return res
 
 
 @app.cell
 def visual__tabs(
-    get_tab,
     individual_journey_flowchart,
     llm_result_single_flowchart,
     mermaid_diagram,
@@ -581,7 +587,6 @@ def visual__tabs(
     ms_include_steps,
     ms_include_steps_fc_a,
     ms_include_steps_fc_b,
-    set_menu,
     statistics_row_1,
     statistics_row_2,
     step_form,
@@ -660,8 +665,17 @@ def _():
 
 
 @app.cell
-def _(set_menu, tabs):
+def _():
+    print(get_tab())
+    return
+
+
+@app.cell
+def _(tabs):
     menu_selected = set_menu(tabs.value)
+    #set_tab(tabs.value)
+    print("Result: ", menu_selected)
+    print("tabs-value: ", tabs.value)
     return (menu_selected,)
 
 
@@ -1005,10 +1019,6 @@ def _(get_state_exc, handle_exc, options_list):
 
 @app.cell
 def visual__step_filters(list_available_steps):
-
-
-    #ms_include_steps = mo.ui.multiselect.from_series(list_available_steps["step"], label='Include Steps ', full_width=True, on_change=print_hello)
-    #ms_exclude_steps = mo.ui.multiselect.from_series(list_available_steps["step"], label='Exclude Steps ', full_width=True)
 
     ms_include_steps_fc_a = mo.ui.multiselect.from_series(list_available_steps["step"], label='Include Steps -A-', full_width=True)
     ms_exclude_steps_fc_a = mo.ui.multiselect.from_series(list_available_steps["step"], label='Exclude Steps -A-', full_width=True)
