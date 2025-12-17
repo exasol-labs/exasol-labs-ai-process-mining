@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "ibis-framework[exasol]>=10.8.0",
+    "ipython>=9.8.0",
     "langchain-openai>=0.3.35",
     "marimo>=0.16.5",
     "msgspec>=0.19.0",

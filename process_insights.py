@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.17.8"
+__generated_with = "0.16.5"
 app = marimo.App(
     width="full",
     app_title="Kea AI - Process Insights",
@@ -126,10 +126,12 @@ def dropdown__projects_list(list_available_projects):
 
 @app.cell(hide_code=True)
 def _(dropdown_projects):
-    mo.md(f"""
+    mo.md(
+        f"""
     # {dropdown_projects.selected_key}
     </br>
-    """)
+    """
+    )
     return
 
 
@@ -253,7 +255,7 @@ def sql__unique_steps():
 
 
 @app.cell
-def switch_flowchart_orienttion():
+def switch__flowchart_orienttion():
     switch_flowchart_orientation = mo.ui.switch(label="Orientation: Top Down / Left-Right")
     return (switch_flowchart_orientation,)
 
@@ -498,7 +500,7 @@ def visual_total_statistics_1(statistics_num_steps, statistics_total):
 
 
 @app.cell
-def visual_total_statistics(
+def visual__total_statistics(
     filtered_statistics,
     individual_journey_statistics,
     menu_selected,
@@ -575,8 +577,22 @@ def set_menu(menu: str) -> str:
 
 
 @app.cell
-def visual__tabs(
-    individual_journey_flowchart,
+def _(mermaid_diagram, ms_exclude_steps, ms_include_steps):
+    ##
+    ## Tab Menu Items
+    ##
+
+    tab_content_process_tree_total = mo.hstack([mo.vstack([
+                                     mo.md("<br/>"),
+                                     mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps.value}")], widths=[1,1]),
+                                     mo.md("<br/><br/>"),
+                                     mo.mermaid(mermaid_diagram).style(width="150%", height="150%").center(),
+                                   ])]),
+    return
+
+
+@app.cell
+def _(
     llm_result_single_flowchart,
     mermaid_diagram,
     mermaid_diagram_fc_a,
@@ -587,59 +603,71 @@ def visual__tabs(
     ms_include_steps,
     ms_include_steps_fc_a,
     ms_include_steps_fc_b,
+):
+    tab_pt = mo.hstack([mo.vstack([
+                                  mo.md("<br/>"),
+                                  mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps.value}")], widths=[1,1]),
+                                  mo.md("<br/><br/>"),
+                                  mo.mermaid(mermaid_diagram).style(width="150%", height="150%").center(),
+                              ])])
+
+    tab_ai = mo.vstack([
+                                  mo.md("<br/>"),
+                                  mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps.value}")], widths=[1,1]),
+                                  mo.md("<br/><br/>"),
+                                  mo.md(str(llm_result_single_flowchart)),                                  
+                                ])
+
+    tab_ab = mo.hstack([
+                 mo.vstack([
+                     mo.md("<br/><br/>"),
+                     mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_fc_a.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_fc_a.value}")], widths=[1,1]),
+                     mo.md("<br/><br/>"),                                    
+                     mo.mermaid(mermaid_diagram_fc_a).style(width="150%", height="150%").center(),
+                 ]),           
+                 mo.vstack([
+                     mo.md("<br/><br/>"),
+                     mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_fc_b.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_fc_b.value}")], widths=[1,1]),
+                     mo.md("<br/><br/>"),                                    
+                     mo.mermaid(mermaid_diagram_fc_b).style(width="150%", height="150%").center(),
+                 ]),
+             ],
+             widths = [1,1],
+             gap = 5.0,
+             )
+    return tab_ab, tab_ai, tab_pt
+
+
+@app.cell
+def visual__tabs(
+    individual_journey_flowchart,
+    ms_exclude_steps,
+    ms_include_steps,
     statistics_row_1,
     statistics_row_2,
     step_form,
+    tab_ab,
+    tab_ai,
+    tab_pt,
 ):
 
 
     tabs = mo.ui.tabs(
         {
-            "Process - Tree": mo.vstack([
-                                  mo.md("<br/>"),
-                                  mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps.value}")], widths=[1,1]),
-                                  mo.md("<br/><br/>"),
-                                  mo.mermaid(mermaid_diagram).style(width="100%", height="150%").center(),
-                              ]),
-
-            "Overview by AI": mo.vstack([
-                                  mo.md("<br/>"),
-                                  mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps.value}")], widths=[1,1]),
-                                  mo.md("<br/><br/>"),
-                                  mo.md(str(llm_result_single_flowchart)),                                  
-                                ]),
-            "A/B Comparison": mo.hstack([
-
-                                    mo.vstack([
-                                        mo.md("<br/><br/>"),
-                                        mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_fc_a.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_fc_a.value}")], widths=[1,1]),
-                                        mo.md("<br/><br/>"),                                    
-                                        mo.mermaid(mermaid_diagram_fc_a),
-                                    ]),           
-                                    mo.vstack([
-                                        mo.md("<br/><br/>"),
-                                        mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_fc_b.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_fc_b.value}")], widths=[1,1]),
-                                        mo.md("<br/><br/>"),                                    
-                                        mo.mermaid(mermaid_diagram_fc_b),
-                                    ]),
-                                    ],
-                                    widths = [1,1],
-                                    gap = 10.0,
-                              )
-
-
-            ,
+            "Process - Tree": tab_pt,
+            "Overview by AI": tab_ai,
+            "A/B Comparison": tab_ab,
             "Individual Journey Inspection":  mo.vstack([mo.md("</br>"), mo.mermaid(individual_journey_flowchart).style(width="100%").center()]),
             "Selected Statistics": mo.vstack([mo.md("</br>"), 
                                               statistics_row_1, 
                                               statistics_row_2,
-                                              mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps.value}")], widths=[1,1]),
+                                              mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps.value}")], widths=[1,1], align="stretch"),
                                              ]),
             "Settings": mo.vstack([step_form]),
         },
         value = get_tab(), #"Process - Tree",
         on_change = set_menu, 
-        label = "Select option"
+        label = "Select an option"
     )
 
     mo.md("<br/><br/>")
@@ -649,12 +677,6 @@ def visual__tabs(
 @app.cell
 def _(tabs):
     mo.vstack([tabs])
-    return
-
-
-@app.cell
-def _():
-    #mo.hstack([mo.vstack([tabs])])
     return
 
 
@@ -1178,7 +1200,7 @@ def compile__flowchart_structure(dropdown_projects, end_date, start_date):
 
 
 @app.cell
-def sql_build_flowchart(
+def sql__build_flowchart(
     build_flowchart_structure,
     dropdown_projects,
     ms_exclude_steps,
