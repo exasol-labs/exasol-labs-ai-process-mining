@@ -342,7 +342,7 @@ def ui__filter_groups(
 
     filter_ab = mo.vstack([filter_process_tree_a, filter_process_tree_b], gap=2, heights=[0,1])
 
-
+    filter_se = mo.hstack([])
 
     default_temp = 0.75
     slider_temperature_llm = mo.ui.slider(label='Temperature for LLM', start=0, stop=1, step=0.05, full_width=True, show_value=True, value=default_temp)
@@ -362,27 +362,10 @@ def ui__filter_groups(
         filter_group_ai,
         filter_individual_journey,
         filter_process_tree,
+        filter_se,
         individual_journey_input_id,
         slider_temperature_llm,
     )
-
-
-@app.cell
-def _(
-    filter_ab,
-    filter_group_ai,
-    filter_individual_journey,
-    filter_process_tree,
-    tabs,
-):
-    match(tabs.value):
-        case 'Process - Tree': filter_group = filter_process_tree
-        case 'Overview by AI': filter_group = filter_group_ai
-        case 'A/B Comparison': filter_group = filter_ab
-        case 'Individual Journey Inspection': filter_group = filter_individual_journey
-        case 'Selected Statistics': filter_group = filter_process_tree
-        case 'Settings': filter_group = ''
-    return (filter_group,)
 
 
 @app.cell
@@ -500,47 +483,50 @@ def visual_total_statistics_1(statistics_num_steps, statistics_total):
 
 
 @app.cell
-def visual__total_statistics(
+def _(
     filtered_statistics,
+    individual_journey_input_id,
     individual_journey_statistics,
-    menu_selected,
     overall_statistics_1,
     overall_statistics_2,
 ):
-    ## Default Display - first first tab
+    statistics_to = mo.accordion({
+            '### Statistics for all Processes': mo.vstack([ overall_statistics_1, overall_statistics_2 ])
+            },
+            multiple = True
+        )
 
-    statistics= ''
-    print(menu_selected)
-
-    if menu_selected == MENU_PROCESS_FLOWCHART or menu_selected == MENU_AI_OVERVIEW:
-        statistics = mo.accordion({
+    statistics_pt = mo.accordion({
             '### Statistics for all Processes': mo.vstack([ overall_statistics_1, overall_statistics_2 ]),
             '### Statistics for Filter-Settings': mo.vstack([ filtered_statistics ]),
             },
             multiple = True
         )
-    elif menu_selected == MENU_A_B_FLOWCHARTS:
-        statistics = mo.accordion({
+
+    statistics_ab = mo.accordion({
             '### Statistics for all Processes': mo.vstack([ overall_statistics_1, overall_statistics_2 ]),
             '### Statistics for Filter-Settings - Process-Tree A': mo.vstack([ filtered_statistics ]),
             '### Statistics for Filter-Settings - Process-Tree B': mo.vstack([ filtered_statistics ]),
             },
             multiple = True
-        )   
-    elif menu_selected == MENU_INDIVIDUAL_FLOWCHART:
-        statistics = mo.accordion({
-            '### Statistics for all Processes': mo.vstack([ overall_statistics_1, overall_statistics_2 ]),
-            '### Statistics for the individual Journey': mo.vstack([ individual_journey_statistics ])
-            },
-            multiple = True
-        )
-    elif menu_selected == MENU_GRAPHICAL_STATISTICS:
-        statistics = mo.accordion({
-            '### Overall Processes': mo.vstack([ overall_statistics_1, overall_statistics_2 ]),
-            },
-            multiple = True
-        )
-    return (statistics,)
+        )  
+
+    if individual_journey_input_id.value != '':
+        statistics_ij = mo.accordion({
+                '### Statistics for all Processes': mo.vstack([ overall_statistics_1, overall_statistics_2 ]),
+                '### Statistics for the individual Journey': mo.vstack([ individual_journey_statistics ])
+                },
+                multiple = True
+            )
+
+    statistics_se = mo.hstack([mo.md('<br/><br/>')])
+    return (
+        statistics_ab,
+        statistics_ij,
+        statistics_pt,
+        statistics_se,
+        statistics_to,
+    )
 
 
 @app.cell
@@ -593,6 +579,7 @@ def _(mermaid_diagram, ms_exclude_steps, ms_include_steps):
 
 @app.cell
 def _(
+    individual_journey_flowchart,
     llm_result_single_flowchart,
     mermaid_diagram,
     mermaid_diagram_fc_a,
@@ -603,6 +590,8 @@ def _(
     ms_include_steps,
     ms_include_steps_fc_a,
     ms_include_steps_fc_b,
+    statistics_row_1,
+    statistics_row_2,
 ):
     tab_pt = mo.hstack([mo.vstack([
                                   mo.md("<br/>"),
@@ -635,7 +624,168 @@ def _(
              widths = [1,1],
              gap = 5.0,
              )
-    return tab_ab, tab_ai, tab_pt
+
+    tab_ij = mo.vstack([mo.md("</br>"), mo.mermaid(individual_journey_flowchart).style(width="100%").center()])
+
+    tab_gs = mo.vstack([mo.md("</br>"), 
+                                              statistics_row_1, 
+                                              statistics_row_2,
+                                              mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps.value}")], widths=[1,1], align="stretch"),
+                                             ])
+    tab_se = mo.hstack([])
+    return tab_ab, tab_ai, tab_gs, tab_ij, tab_pt, tab_se
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _(xxx):
+    kind_pt = kind_ai = kind_ab = kind_ij = kind_gs = kind_se = 'neutral'
+
+
+    def set_tab_color(sel_tab: str):
+
+        global kind_pt, kind_ai, kind_ab, kind_ij, kind_gs, kind_se
+        global xxx
+
+        kind_pt = kind_ai = kind_ab = kind_ij = kind_gs = kind_se = 'neutral'
+
+        if sel_tab == 'pt':
+            kind_pt = 'neutral'
+        elif sel_tab == 'ai':
+            kind_ai = 'neutral'
+        elif sel_tab == 'ab':
+            kind_ab = 'neutral'
+        elif sel_tab == 'ij':
+            kind_ij = 'neutral'
+        elif sel_tab == 'gs':
+            kind_gs = 'neutral'
+        elif sel_tab == 'se':
+            kind_se = 'neutral'
+    return kind_ab, kind_ai, kind_gs, kind_ij, kind_pt, kind_se, set_tab_color
+
+
+@app.cell
+def _(set_tab_color):
+    set_tab_color('pt')
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def gui__menu_buttons(kind_ab, kind_ai, kind_gs, kind_ij, kind_pt, kind_se):
+
+    button_pt = mo.ui.run_button(label='Process Tree',full_width=True, kind = kind_pt)
+    button_ai = mo.ui.run_button(label='AI-Generated Overview', full_width=True, kind=kind_ai)
+    button_ab = mo.ui.run_button(label='A/B Comparison', full_width=True, kind=kind_ab)
+    button_ij = mo.ui.run_button(label='Individual Journey inspection',full_width=True, kind=kind_ij)
+    button_gs = mo.ui.run_button(label='Graphical Statistics', full_width=True, kind=kind_gs)
+    button_se = mo.ui.run_button(label='Settings', full_width=True, kind=kind_se)
+    return button_ab, button_ai, button_gs, button_ij, button_pt, button_se
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _(button_ab, button_ai, button_gs, button_ij, button_pt, button_se):
+    button_row = mo.hstack([button_pt, button_ai, button_ab, button_ij, button_gs, button_se], justify='center', gap=0.25)
+    return (button_row,)
+
+
+@app.cell
+def _():
+    mo.md(r"""<br/>""")
+    return
+
+
+@app.cell
+def _(button_row):
+    button_row
+    return
+
+
+@app.cell
+def _(
+    button_ab,
+    button_ai,
+    button_gs,
+    button_ij,
+    button_pt,
+    button_se,
+    filter_ab,
+    filter_group_ai,
+    filter_individual_journey,
+    filter_process_tree,
+    filter_se,
+    individual_journey_input_id,
+    set_tab_color,
+    statistics_ab,
+    statistics_ij,
+    statistics_pt,
+    statistics_se,
+    statistics_to,
+    tab_ab,
+    tab_ai,
+    tab_gs,
+    tab_ij,
+    tab_pt,
+    tab_se,
+):
+    statistics = statistics_pt
+
+    button_map = [
+        (button_pt, tab_pt, filter_process_tree, 'pt'),
+        (button_ai, tab_ai, filter_group_ai, 'ai'),
+        (button_ab, tab_ab, filter_ab, 'ab'),
+        (button_ij, tab_ij, filter_individual_journey, 'ij'),
+        (button_gs, tab_gs, filter_process_tree, 'gs'),
+        (button_se, tab_se, filter_se, 'se'),
+    ]
+
+    viewer = button_map[0][1]
+    filter_group = button_map[0][2]
+
+    for button, tab, filter_group_value, idx in button_map:
+        if button.value:
+            viewer = tab
+            set_tab_color(idx)
+            if filter_group_value is not None:
+                filter_group = filter_group_value
+
+            if idx == 'pt' or idx == 'ai':
+                statistics = statistics_pt
+            elif idx == 'ab':
+                statistics=statistics_ab
+            elif idx == 'ij' and individual_journey_input_id.value != '':
+                statistics = statistics_ij
+            elif idx == 'gs':
+                statistics = statistics_to
+            elif idx == 'se':
+                statistics = statistics_se
+
+            break
+    return filter_group, statistics, viewer
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _(viewer):
+    viewer
+    return
 
 
 @app.cell
@@ -675,8 +825,7 @@ def visual__tabs(
 
 
 @app.cell
-def _(tabs):
-    mo.vstack([tabs])
+def _():
     return
 
 
@@ -687,18 +836,12 @@ def _():
 
 
 @app.cell
-def _():
-    print(get_tab())
-    return
-
-
-@app.cell
 def _(tabs):
     menu_selected = set_menu(tabs.value)
     #set_tab(tabs.value)
     print("Result: ", menu_selected)
     print("tabs-value: ", tabs.value)
-    return (menu_selected,)
+    return
 
 
 @app.cell
@@ -1411,10 +1554,10 @@ def visual__create_flowchart(
         _subgraphs_list = "\n"
         for group, steps in groups.items():
             if group != 'GLOBAL':
-                _subgraphs_list += f"    subgraph {group}.......... \n"
+                _subgraphs_list += f"    subgraph {group}__________ \n"
                 for step, shape in steps:
                     s = step.replace(' ', '_').replace("-", "_")
-                    _subgraphs_list += f"        {s}[\"{step}..........\"]@{{ shape: {shape} }}\n"
+                    _subgraphs_list += f"        {s}[\"{step}_____\"]@{{ shape: {shape} }}\n"
                 _subgraphs_list += "    end\n"
 
         return _subgraphs_list
@@ -1442,6 +1585,8 @@ def visual__create_flowchart(
             bg = row["bg_color"] if pd.notnull(row["bg_color"]) else "None"
             fg = row["fg_color"] if pd.notnull(row["fg_color"]) else "None"
             styles.append(f"style {label} fill:{bg}, color:{fg}")
+
+
 
         node_styles = ""
         for style in styles:
@@ -1492,7 +1637,7 @@ def visual__create_flowchart(
             # Format weight for display
             formatted_weight = f"{weight:,}"
             mermaid_content += (
-                f"""    {safe_start} e{i}@== .....{formatted_weight}..... ==>{safe_end} 
+                f"""    {safe_start} e{i}@== __________{formatted_weight}__________ ==>{safe_end} 
                         e{i}@{{ animate: true }}
             """
             )
@@ -1744,11 +1889,11 @@ def _(
 
                 # Build Mermaid-like content block
                 mermaid_content_individual_journey += (
-                    #f"\n    {src_clean}[{src_clean}..........\n{st}..........\n] e{transition_num}@== ...Step-{transition_num} : {duration} mins....... ==>"
+                    #f"\n    {src_clean}[{src_clean}__________\n{st}__________\n] e{transition_num}@== ...Step-{transition_num} : {duration} mins....... ==>"
                     f"\n    {src_clean} e{transition_num}@== ...Step-{transition_num} : {duration} mins....... ==>"
                     #f"@{{ shape: {shape} }} == ...Step-{transition_num} : {duration} mins....... ==>"
                     #f" == ...Step-{transition_num} : {duration} mins....... ==>"
-                    #f"{dst_clean}[{dst_clean}..........\n{et}..........\n.]\n"
+                    #f"{dst_clean}[{dst_clean}__________\n{et}__________\n]\n"
                     f"{dst_clean}\n"
                     f"e{transition_num}@{{animate: true}}"
 
