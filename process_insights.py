@@ -25,6 +25,9 @@ with app.setup:
     from dotenv import load_dotenv, dotenv_values
     from sqlalchemy import create_engine, sql, text
 
+    from tools.sql_builder.sql_builder import filter_to_sql
+    from tools.sql_builder.sql_builder import sql_filtered_statistics
+    from tools.statistics.statistic_widgets import filtered_statistics_widgets
     from tools.wrappers.text_wrappers import wrap_text, ResultText
 
     ## Debugging Flag
@@ -262,11 +265,19 @@ def switch__flowchart_orienttion():
 
 @app.cell
 def dropdown__metric_selection():
-    _metrics1 = ["Number of Journeys", "Average Transition Time", "Minimum Transition Time", "Median Transition Time", "StdDev Transition Time", "Maximum Transition Time"]
+    _metrics_pt = ["Number of Journeys", "Average Transition Time", "Minimum Transition Time", "Median Transition Time", "StdDev Transition Time", "Maximum Transition Time"]
+    _metrics_a  = ["Number of Journeys", "Average Transition Time", "Minimum Transition Time", "Median Transition Time", "StdDev Transition Time", "Maximum Transition Time"]
+    _metrics_b  = ["Number of Journeys", "Average Transition Time", "Minimum Transition Time", "Median Transition Time", "StdDev Transition Time", "Maximum Transition Time"]
+
+    metric_selection_pt = mo.ui.multiselect(options=_metrics_pt, label='Metric ', value=['Number of Journeys'], full_width=True, max_selections=1)
+    metric_selection_a  = mo.ui.multiselect(options=_metrics_a,  label='Metric ', value=['Number of Journeys'], full_width=True, max_selections=1)
+    metric_selection_b  = mo.ui.multiselect(options=_metrics_b,  label='Metric ', value=['Number of Journeys'], full_width=True, max_selections=1)
+    return metric_selection_a, metric_selection_b, metric_selection_pt
 
 
-    metric_selection = mo.ui.multiselect(options=_metrics1, label='Metric ', value=['Number of Journeys'], full_width=True, max_selections=1)
-    return (metric_selection,)
+@app.cell
+def _():
+    return
 
 
 @app.cell
@@ -274,7 +285,9 @@ def ui__filter_groups(
     end_date,
     end_date_fc_a,
     end_date_fc_b,
-    metric_selection,
+    metric_selection_a,
+    metric_selection_b,
+    metric_selection_pt,
     ms_exclude_steps,
     ms_exclude_steps_fc_a,
     ms_exclude_steps_fc_b,
@@ -294,7 +307,7 @@ def ui__filter_groups(
                     mo.hstack([switch_flowchart_orientation]),
                     mo.hstack([start_date, mo.md("->"), end_date], gap=0.1, justify="start"),
                     mo.vstack([
-                        metric_selection,
+                        metric_selection_pt,
                         ms_include_steps, 
                         ms_exclude_steps,
                         ms_meta_search_1,
@@ -318,6 +331,7 @@ def ui__filter_groups(
                     mo.hstack([mo.md("### Filtergroup -A-")]),
                     mo.hstack([start_date_fc_a, mo.md("->"), end_date_fc_a], gap=0.1, justify="start"),
                     mo.vstack([
+                        metric_selection_a,
                         ms_include_steps_fc_a, 
                         ms_exclude_steps_fc_a,
                         ms_meta_search_1_fc_a,
@@ -331,6 +345,7 @@ def ui__filter_groups(
                     mo.hstack([mo.md("### Filtergroup -B-")]),
                     mo.hstack([start_date_fc_b, mo.md("->"), end_date_fc_b], gap=0.1, justify="start"),
                     mo.vstack([
+                        metric_selection_b,
                         ms_include_steps_fc_b, 
                         ms_exclude_steps_fc_b,
                         ms_meta_search_1_fc_b,
@@ -484,7 +499,9 @@ def visual_total_statistics_1(statistics_num_steps, statistics_total):
 
 @app.cell
 def _(
-    filtered_statistics,
+    filtered_statistics_widgets_a,
+    filtered_statistics_widgets_b,
+    filtered_statistics_widgets_pt,
     individual_journey_input_id,
     individual_journey_statistics,
     overall_statistics_1,
@@ -498,15 +515,15 @@ def _(
 
     statistics_pt = mo.accordion({
             '### Statistics for all Processes': mo.vstack([ overall_statistics_1, overall_statistics_2 ]),
-            '### Statistics for Filter-Settings': mo.vstack([ filtered_statistics ]),
+            '### Statistics for Filter-Settings': mo.vstack([ filtered_statistics_widgets_pt ]),
             },
             multiple = True
         )
 
     statistics_ab = mo.accordion({
             '### Statistics for all Processes': mo.vstack([ overall_statistics_1, overall_statistics_2 ]),
-            '### Statistics for Filter-Settings - Process-Tree A': mo.vstack([ filtered_statistics ]),
-            '### Statistics for Filter-Settings - Process-Tree B': mo.vstack([ filtered_statistics ]),
+            '### Statistics for Filter-Settings - Process-Tree A': mo.vstack([ filtered_statistics_widgets_a ]),
+            '### Statistics for Filter-Settings - Process-Tree B': mo.vstack([ filtered_statistics_widgets_b ]),
             },
             multiple = True
         )  
@@ -527,6 +544,24 @@ def _(
         statistics_se,
         statistics_to,
     )
+
+
+@app.cell
+def _(button_ab, button_ai, button_gs, button_ij, button_pt, button_se):
+    button_row = mo.hstack([button_pt, button_ai, button_ab, button_ij, button_gs, button_se], justify='center', gap=0.25)
+    return (button_row,)
+
+
+@app.cell
+def _(button_row):
+    button_row
+    return
+
+
+@app.cell
+def _():
+    mo.md(r"""<br/>""")
+    return
 
 
 @app.cell
@@ -675,11 +710,6 @@ def _(set_tab_color):
 
 
 @app.cell
-def _():
-    return
-
-
-@app.cell
 def gui__menu_buttons(kind_ab, kind_ai, kind_gs, kind_ij, kind_pt, kind_se):
 
     button_pt = mo.ui.run_button(label='Process Tree',full_width=True, kind = kind_pt)
@@ -689,29 +719,6 @@ def gui__menu_buttons(kind_ab, kind_ai, kind_gs, kind_ij, kind_pt, kind_se):
     button_gs = mo.ui.run_button(label='Graphical Statistics', full_width=True, kind=kind_gs)
     button_se = mo.ui.run_button(label='Settings', full_width=True, kind=kind_se)
     return button_ab, button_ai, button_gs, button_ij, button_pt, button_se
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _(button_ab, button_ai, button_gs, button_ij, button_pt, button_se):
-    button_row = mo.hstack([button_pt, button_ai, button_ab, button_ij, button_gs, button_se], justify='center', gap=0.25)
-    return (button_row,)
-
-
-@app.cell
-def _():
-    mo.md(r"""<br/>""")
-    return
-
-
-@app.cell
-def _(button_row):
-    button_row
-    return
 
 
 @app.cell
@@ -959,182 +966,65 @@ def _(dropdown_projects):
 
 
 @app.cell
+def _():
+    ##########################################
+    ## Create Statistics when filter change ##
+    ##########################################
+    return
+
+
+@app.cell
 def _(ms_exclude_steps, ms_include_steps, ms_meta_search_1):
-    exclude_steps = str(ms_exclude_steps.value).replace('[','(').replace(']', ')')
-    include_steps = str(ms_include_steps.value).replace('[','(').replace(']', ')')
-    meta_1_search = str(ms_meta_search_1.value).replace('[','(').replace(']', ')')
-
-    if exclude_steps != '()':
-        sql_where_exclude_steps = f"  STEP IN {exclude_steps} "
-    else:
-        sql_where_exclude_steps = " STEP IN ('START')"
-
-    if include_steps != '()':
-        sql_where_include_steps = f"  STEP IN {include_steps} "
-    else:
-        sql_where_include_steps = ''
-
-    if meta_1_search != '()':
-        sql_where_meta_1_search = f"  AND META_1 IN {meta_1_search} "
-    else:
-        sql_where_meta_1_search = ''
-
-    WHERE_INC = ''
-    WHERE_EXC = ''
-
-    if sql_where_include_steps != '' or sql_where_meta_1_search != '':
-        WHERE_INC = 'WHERE'
-
-    if sql_where_exclude_steps != '' or sql_where_meta_1_search != '':
-        WHERE_EXC = 'WHERE'
-    return (
-        WHERE_EXC,
-        WHERE_INC,
-        sql_where_exclude_steps,
-        sql_where_include_steps,
-        sql_where_meta_1_search,
-    )
+    sql_parts_pt = filter_to_sql(ms_exclude_steps, ms_include_steps, ms_meta_search_1)
+    return (sql_parts_pt,)
 
 
 @app.cell
-def sql__statistics_filtered(
-    WHERE_EXC,
-    WHERE_INC,
-    dropdown_projects,
-    end_date,
-    sql_where_exclude_steps,
-    sql_where_include_steps,
-    sql_where_meta_1_search,
-    start_date,
-):
-    statistics_filtered = mo.sql(
-        f"""
-        WITH TIMED_JOURNEYS AS (
-            SELECT
-            	*
-            FROM
-            	{env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
-            WHERE
-            	PROJECT_ID = '{dropdown_projects.value}' AND
-                EVENT_TIME >= '{start_date.value}' AND EVENT_TIME <= '{end_date.value}' 	
-        ),
-
-
-        excluded_events AS (
-            SELECT 
-                DISTINCT EVENT_ID
-            FROM 
-                TIMED_JOURNEYS
-            {WHERE_EXC}
-                {sql_where_exclude_steps}
-                {sql_where_meta_1_search}
-        ),
-
-        included_events AS (
-            SELECT 
-                DISTINCT EVENT_ID
-            FROM 
-                TIMED_JOURNEYS
-            {WHERE_INC} 
-                {sql_where_include_steps} 
-                {sql_where_meta_1_search}
-        ),
-
-        filtered_journeys AS (
-            SELECT 
-                *
-            FROM 
-                TIMED_JOURNEYS
-            WHERE 
-                PROJECT_ID = '{dropdown_projects.value}' AND
-                EVENT_ID NOT IN (SELECT EVENT_ID FROM excluded_events) AND
-                EVENT_ID IN (SELECT EVENT_ID FROM included_events)
-
-        ),
-
-        process_chains AS (
-            SELECT
-                EVENT_ID,
-                EVENT_TIME AS FROM_TIME,
-                STEP AS FROM_STEP,
-                LEAD(STEP) OVER (PARTITION BY EVENT_ID ORDER BY EVENT_TIME) AS TO_STEP,
-                LEAD(EVENT_TIME) OVER (PARTITION BY EVENT_ID ORDER BY EVENT_TIME) AS TO_TIME
-            FROM 
-                filtered_journeys
-        ),
-
-        durations AS (
-            SELECT  
-                EVENT_ID,
-                MINUTES_BETWEEN(MAX(TO_TIME), MIN(FROM_TIME)) as duration_minutes
-            FROM 
-                process_chains
-            WHERE 
-                TO_STEP IS NOT NULL
-            GROUP BY 
-                EVENT_ID
-        )
-
-
-        SELECT 
-            COUNT(DISTINCT EVENT_ID) AS num_journeys,
-            MIN(duration_minutes) AS min_duration_minutes,
-            AVG(duration_minutes) AS avg_duration_minutes,
-            MAX(duration_minutes) AS max_duration_minutes,
-            STDDEV_POP(duration_minutes) AS stddev_duration_minutes
-        FROM durations;
-        """,
-        output=False,
-        engine=Exasol_Database_Engine
-    )
-    return (statistics_filtered,)
+def _(dropdown_projects, end_date, sql_parts_pt, start_date):
+    filtered_statistics_pt = sql_filtered_statistics(env=env, project=dropdown_projects.value, start_date=start_date.value, end_date=end_date.value, sql_parts=sql_parts_pt)
+    return (filtered_statistics_pt,)
 
 
 @app.cell
-def _(statistics_filtered):
-    #dir = 'decrease' if _data_raw[0][0] > _data_flt[0][0] else 'increase'
-    _unique_journeys_flt = mo.stat(
-        label="Unique Processes",
-        bordered=True,
-        caption=f"Individual identifiers",
-        value=statistics_filtered['num_journeys'][0],
-    #    direction=dir
-    )
+def _(dataframe_statistics_filtered_pt):
+    filtered_statistics_widgets_pt = filtered_statistics_widgets(dataframe_statistics_filtered_pt)
+    return (filtered_statistics_widgets_pt,)
 
-    _min_journey_time_flt = mo.stat(
-        label="Minimum Processes Time",
-        bordered=True,
-        caption=f"minutes",
-        value=statistics_filtered['min_duration_minutes'][0],
-    )
 
-    _average_journey_time_flt = mo.stat(
-        label="Average Processes Time",
-        bordered=True,
-        caption=f"minutes",
-        value=statistics_filtered['avg_duration_minutes'][0],
-    )
+@app.cell
+def _(ms_exclude_steps_fc_a, ms_include_steps_fc_a, ms_meta_search_1_fc_a):
+    sql_parts_a = filter_to_sql(ms_exclude_steps_fc_a, ms_include_steps_fc_a, ms_meta_search_1_fc_a)
+    return (sql_parts_a,)
 
-    _maximum_journey_time_flt = mo.stat(
-        label="Maximum Processes Time",
-        bordered=True,
-        caption=f"minutes",
-        value=statistics_filtered['max_duration_minutes'][0],
-    )
 
-    _variance_journey_time_flt = mo.stat(
-        label="Variance of Processes Time",
-        bordered=True,
-        caption=f"minutes",
-        value=statistics_filtered['stddev_duration_minutes'][0],
-    )
+@app.cell
+def _(dropdown_projects, end_date_fc_a, sql_parts_a, start_date_fc_a):
+    filtered_statistics_a  = sql_filtered_statistics(env=env, project=dropdown_projects.value, start_date=start_date_fc_a.value, end_date=end_date_fc_a.value, sql_parts=sql_parts_a)
+    return (filtered_statistics_a,)
 
-    filtered_statistics = mo.hstack(
-        [_unique_journeys_flt, _min_journey_time_flt, _average_journey_time_flt, _maximum_journey_time_flt, _variance_journey_time_flt],
-        widths="equal",
-        gap=1,
-    )
-    return (filtered_statistics,)
+
+@app.cell
+def _(ms_exclude_steps_fc_b, ms_include_steps_fc_b, ms_meta_search_1_fc_b):
+    sql_parts_b = filter_to_sql(ms_exclude_steps_fc_b, ms_include_steps_fc_b, ms_meta_search_1_fc_b)
+    return (sql_parts_b,)
+
+
+@app.cell
+def _(statistics_filtered_a):
+    filtered_statistics_widgets_a = filtered_statistics_widgets(statistics_filtered_a)
+    return (filtered_statistics_widgets_a,)
+
+
+@app.cell
+def _(dropdown_projects, end_date_fc_b, sql_parts_b, start_date_fc_b):
+    filtered_statistics_b  = sql_filtered_statistics(env=env, project=dropdown_projects.value, start_date=start_date_fc_b.value, end_date=end_date_fc_b.value, sql_parts=sql_parts_b)
+    return (filtered_statistics_b,)
+
+
+@app.cell
+def _(statistics_filtered_b):
+    filtered_statistics_widgets_b = filtered_statistics_widgets(statistics_filtered_b)
+    return (filtered_statistics_widgets_b,)
 
 
 @app.cell
@@ -1148,11 +1038,46 @@ def _(list_available_steps):
 
 
 @app.cell
-def _():
+def _(filtered_statistics_pt):
+    dataframe_statistics_filtered_pt = mo.sql(
+        f"""
+        {filtered_statistics_pt}
+        """,
+        output=False,
+        engine=Exasol_Database_Engine
+    )
+    return (dataframe_statistics_filtered_pt,)
 
-    ##
-    ## Defining the Exclude/Include Filter Selections
-    ##
+
+@app.cell
+def _(filtered_statistics_b):
+    statistics_filtered_b = mo.sql(
+        f"""
+        {filtered_statistics_b}
+        """,
+        output=False,
+        engine=Exasol_Database_Engine
+    )
+    return (statistics_filtered_b,)
+
+
+@app.cell
+def _(filtered_statistics_a):
+    statistics_filtered_a = mo.sql(
+        f"""
+        {filtered_statistics_a}
+        """,
+        output=False,
+        engine=Exasol_Database_Engine
+    )
+    return (statistics_filtered_a,)
+
+
+@app.cell
+def _():
+    ####################################################
+    ## Defining the Exclude/Include Filter Selections ##
+    ####################################################
     return
 
 
@@ -1325,7 +1250,11 @@ def compile__flowchart_structure(dropdown_projects, end_date, start_date):
                     FROM_STEP,
                     TO_STEP,
                     COUNT(DISTINCT EVENT_ID),
-                    AVG(DURATION_SECONDS)  
+                    AVG(DURATION_SECONDS), 
+                    MIN(DURATION_SECONDS),
+                    MAX(DURATION_SECONDS),
+                    MEDIAN(DURATION_SECONDS),
+                    STDDEV(DURATION_SECONDS)
                 FROM 
                     PROCESS_CHAINS
 
@@ -1522,6 +1451,7 @@ def nodes_for_sql(data):
 def visual__create_flowchart(
     dataframe_flowchart,
     dropdown_projects,
+    metric_selection_pt,
     switch_flowchart_orientation,
 ):
 
@@ -1598,14 +1528,14 @@ def visual__create_flowchart(
 
 
 
-    def create_journeys_flowchart(data, connection):
+    def create_journeys_flowchart(data, metric, connection):
 
         if switch_flowchart_orientation.value:
             mermaid_content = "flowchart LR\n"
         else:
             mermaid_content = "flowchart TD\n"
 
-
+        metric = metric[0]
 
         # Track all nodes and their connections
 
@@ -1613,14 +1543,14 @@ def visual__create_flowchart(
         visited_nodes = set()
         edges = []
 
-        for start, end, weight, _ in data.iter_rows():
+        for start, end, sum_transitions, avg_time, min_time, max_time, median_time, stddev_time in data.iter_rows():
             nodes.add(start)
             nodes.add(end)
 
             visited_nodes.add(start.replace(" ", "_").replace("-", "_").replace(".", "_"))
             visited_nodes.add(end.replace(" ", "_").replace("-", "_").replace(".", "_"))
 
-            edges.append((start, end, weight))
+            edges.append((start, end, sum_transitions, avg_time, min_time, max_time, median_time, stddev_time))
 
         _subgraphs_list = get_belongs_to(visited_nodes, connection)
 
@@ -1628,33 +1558,45 @@ def visual__create_flowchart(
 
         # Add edges with weights
         i = 1
-        for start, end, weight in edges:
+        for start, end, sum_transitions, avg_time, min_time, max_time, median_time, stddev_time in edges:
             safe_start = (
                 start.replace(" ", "_").replace("-", "_").replace(".", "_")
             )
             safe_end = end.replace(" ", "_").replace("-", "_").replace(".", "_")
 
             # Format weight for display
-            formatted_weight = f"{weight:,}"
+            formatted_sum_transitions = f"{sum_transitions:,}"
+            formatted_min_time = f"{float(min_time):.1f}"
+            formatted_avg_time = f"{float(avg_time):.1f}"
+            formatted_max_time = f"{float(max_time):.1f}"
+            formatted_median_time = f"{float(median_time):.1f}"
+            formatted_stddev_time = f"{float(stddev_time):.1f}"
+
+            if metric == 'Number of Journeys':
+                print_metric = formatted_sum_transitions
+            elif metric == 'Average Transition Time':
+                print_metric = formatted_avg_time
+            elif metric == "Minimum Transition Time":
+                print_metric = formatted_min_time
+            elif metric == 'Maximum Transition Time':
+                print_metric = formatted_max_time
+            elif metric == 'Median Transition Time':
+                print_metric = formatted_median_time
+            elif metric == 'StdDev Transition Time':
+                print_metric = formatted_stddev_time
+            else:
+                print_metric = formatted_sum_transitions
+
             mermaid_content += (
-                f"""    {safe_start} e{i}@== __________{formatted_weight}__________ ==>{safe_end} 
+                f"""    {safe_start} e{i}@== ..........{print_metric}.......... ==>{safe_end} 
                         e{i}@{{ animate: true }}
             """
             )
             i = i + 1
-    #e1@==_   DIRK  _==> B
-    #  e1@{ animate: true }
+
         node_styles = generate_styles(visited_nodes, connection)
 
         return mermaid_content + "\n\n" + str(node_styles)
-
-
-    # Your data set
-
-
-    #_data_flowchart = C.execute(sql_build_transition_structure).fetchall()
-
-    #process_flow_transition_table = _data
 
 
     ##
@@ -1663,7 +1605,7 @@ def visual__create_flowchart(
 
     with Exasol_Database_Engine.connect() as _con:        
 
-        mermaid_diagram = create_journeys_flowchart(dataframe_flowchart, _con)
+        mermaid_diagram = create_journeys_flowchart(dataframe_flowchart, metric_selection_pt.value, _con)
         mermaid_diagram += "\n\n"
 
     if DEBUG:
@@ -1681,13 +1623,15 @@ def _(
     create_journeys_flowchart,
     dataframe_flowchart_fc_a,
     dataframe_flowchart_fc_b,
+    metric_selection_a,
+    metric_selection_b,
 ):
     with Exasol_Database_Engine.connect() as _con:        
 
-        mermaid_diagram_fc_a = create_journeys_flowchart(dataframe_flowchart_fc_a, _con)
+        mermaid_diagram_fc_a = create_journeys_flowchart(dataframe_flowchart_fc_a, metric_selection_a.value, _con)
         mermaid_diagram_fc_a += "\n\n"
 
-        mermaid_diagram_fc_b = create_journeys_flowchart(dataframe_flowchart_fc_b, _con)
+        mermaid_diagram_fc_b = create_journeys_flowchart(dataframe_flowchart_fc_b, metric_selection_b.value, _con)
         mermaid_diagram_fc_b += "\n\n"
     return mermaid_diagram_fc_a, mermaid_diagram_fc_b
 
