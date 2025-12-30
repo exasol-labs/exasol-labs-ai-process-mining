@@ -26,8 +26,8 @@ with app.setup:
     from sqlalchemy import create_engine, sql, text
 
     from tools.sql_builder.sql_builder import filter_to_sql
-    from tools.sql_builder.sql_builder import sql_filtered_statistics
-    from tools.statistics.statistic_widgets import filtered_statistics_widgets
+    from tools.sql_builder.sql_builder import sql_filtered_statistics_1, sql_filtered_statistics_2
+    from tools.statistics.statistic_widgets import filtered_statistics_widgets, total_statistics_widgets
     from tools.wrappers.text_wrappers import wrap_text, ResultText
 
     ## Debugging Flag
@@ -172,36 +172,6 @@ def title__working_project(dropdown_projects):
         PROJECT_ID = '{dropdown_projects.value}'
     """
     return
-
-
-@app.cell
-def sql__total_statistics():
-    statistics_total = mo.sql(
-        f"""
-        SELECT
-            COUNT(*)                               AS num_journeys,
-            MIN(duration_minutes)                  AS min_duration_minutes,
-            MEDIAN(duration_minutes)               AS median_duration_minutes,
-            AVG(duration_minutes)                  AS avg_duration_minutes,
-            MAX(duration_minutes)                  AS max_duration_minutes,
-            STDDEV_POP(duration_minutes)           AS stddev_duration_minutes,
-            MIN(min_datetime)                      AS earliest_eventdate,
-            MAX(max_datetime)                      AS most_recent_eventdate
-        FROM (
-            SELECT 
-                EVENT_ID,
-                MIN(TO_DATE(EVENT_TIME, 'DD-MM-YYYY')) AS min_datetime,
-                MAX(TO_DATE(EVENT_TIME, 'DD-MM-YYYY')) AS max_datetime,
-                MINUTES_BETWEEN(MAX(EVENT_TIME), MIN(EVENT_TIME)) AS duration_minutes
-            FROM {env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
-            WHERE PROJECT_ID = 'APF'
-            GROUP BY EVENT_ID
-        ) AS durations;
-        """,
-        output=False,
-        engine=Exasol_Database_Engine
-    )
-    return (statistics_total,)
 
 
 @app.cell
@@ -406,131 +376,85 @@ def visual__sidebar(dropdown_projects, filter_group):
 
 
 @app.cell
-def visual_total_statistics_1(statistics_num_steps, statistics_total):
-    ##
-    ## Create Total Statistics widgets
-    ##
-
-
-    earliest_date = mo.stat(
-        label="Earliest Event Date",
-        bordered=True,
-        caption=f"Recorded Day",
-        value=statistics_total['earliest_eventdate'][0],
-    )
-
-    most_recent_date = mo.stat(
-        label="Most Recent Event Date",
-        bordered=True,
-        caption=f"Recorded Day",
-        value=statistics_total['most_recent_eventdate'][0],
-    )
-
-    unique_journeys_raw = mo.stat(
-        label="Unique Processes",
-        bordered=True,
-        caption=f"Individual identifiers",
-        value=statistics_total['num_journeys'][0]
-    )
-
-    total_steps_raw = mo.stat(
-        label="Totl Number of Steps",
-        bordered=True,
-        caption=f"Steps",
-        value=statistics_num_steps['total_steps'][0]
-    )
-
-    distinct_steps = mo.stat(
-        label="Distinct Steps",
-        bordered=True,
-        caption=f"Steps",
-        value=statistics_num_steps['distinct_steps'][0]
-    )
-
-
-    min_journey_time_raw = mo.stat(
-        label="Minimum Process Time",
-        bordered=True,
-        caption=f"minutes",
-        value=statistics_total['min_duration_minutes'][0]
-    )
-
-    median_journey_time_raw = mo.stat(
-        label="Median of Process Time",
-        bordered=True,
-        caption=f"minutes",
-        value=statistics_total['median_duration_minutes'][0]
-    )
-
-    average_journey_time_raw = mo.stat(
-        label="Average Process Time",
-        bordered=True,
-        caption=f"minutes",
-        value=statistics_total['avg_duration_minutes'][0]
-    )
-
-    maximum_journey_time_raw = mo.stat(
-        label="Maximum Process Time",
-        bordered=True,
-        caption=f"minutes",
-        value=statistics_total['max_duration_minutes'][0]
-    )
-
-    variance_journey_time_raw = mo.stat(
-        label="Variance Process Time",
-        bordered=True,
-        caption=f"minutes",
-        value=statistics_total['stddev_duration_minutes'][0]
-    )
-
-    overall_statistics_1 = mo.hstack(
-        [earliest_date, most_recent_date, unique_journeys_raw, total_steps_raw, distinct_steps],
-        widths="equal",
-        gap=1,
-    )
-
-    overall_statistics_2 = mo.hstack(
-        [min_journey_time_raw, median_journey_time_raw, average_journey_time_raw, maximum_journey_time_raw, variance_journey_time_raw],
-        widths="equal",
-        gap=1,
-    )
-    return overall_statistics_1, overall_statistics_2
+def _(statistics_num_steps, statistics_total):
+    total_statistics_1 = total_statistics_widgets(statistics_total, statistics_num_steps)['total_statistics_1']
+    total_statistics_2 = total_statistics_widgets(statistics_total, statistics_num_steps)['total_statistics_2']
+    return total_statistics_1, total_statistics_2
 
 
 @app.cell
 def _(
-    filtered_statistics_widgets_a,
-    filtered_statistics_widgets_b,
-    filtered_statistics_widgets_pt,
+    dataframe_statistics_filtered_pt_1,
+    dataframe_statistics_filtered_pt_2,
+    end_date,
+    start_date,
+):
+    filtered_statistics_pt_1 = filtered_statistics_widgets(dataframe_statistics_filtered_pt_1, dataframe_statistics_filtered_pt_2, start_date.value, end_date.value)['filtered_statistics_1']
+    filtered_statistics_pt_2 = filtered_statistics_widgets(dataframe_statistics_filtered_pt_1, dataframe_statistics_filtered_pt_2, start_date.value, end_date.value)['filtered_statistics_2']
+    return filtered_statistics_pt_1, filtered_statistics_pt_2
+
+
+@app.cell
+def _(
+    dataframe_statistics_filtered_a_1,
+    dataframe_statistics_filtered_a_2,
+    end_date_fc_a,
+    start_date_fc_a,
+):
+    filtered_statistics_widgets_a_1 = filtered_statistics_widgets(dataframe_statistics_filtered_a_1, dataframe_statistics_filtered_a_2, start_date_fc_a.value, end_date_fc_a.value)['filtered_statistics_1']
+    filtered_statistics_widgets_a_2 = filtered_statistics_widgets(dataframe_statistics_filtered_a_1, dataframe_statistics_filtered_a_2, start_date_fc_a.value, end_date_fc_a.value)['filtered_statistics_2']
+    return filtered_statistics_widgets_a_1, filtered_statistics_widgets_a_2
+
+
+@app.cell
+def _(
+    dataframe_statistics_filtered_b_1,
+    dataframe_statistics_filtered_b_2,
+    end_date_fc_b,
+    start_date_fc_b,
+):
+    filtered_statistics_widgets_b_1 = filtered_statistics_widgets(dataframe_statistics_filtered_b_1, dataframe_statistics_filtered_b_2, start_date_fc_b.value, end_date_fc_b.value)['filtered_statistics_1']
+    filtered_statistics_widgets_b_2 = filtered_statistics_widgets(dataframe_statistics_filtered_b_1, dataframe_statistics_filtered_b_2, start_date_fc_b.value, end_date_fc_b.value)['filtered_statistics_2']
+    return filtered_statistics_widgets_b_1, filtered_statistics_widgets_b_2
+
+
+@app.cell
+def _(
+    filtered_statistics_pt_1,
+    filtered_statistics_pt_2,
+    filtered_statistics_widgets_a_1,
+    filtered_statistics_widgets_a_2,
+    filtered_statistics_widgets_b_1,
+    filtered_statistics_widgets_b_2,
     individual_journey_input_id,
     individual_journey_statistics,
-    overall_statistics_1,
-    overall_statistics_2,
+    total_statistics_1,
+    total_statistics_2,
 ):
     statistics_to = mo.accordion({
-            '### Statistics for all Processes': mo.vstack([ overall_statistics_1, overall_statistics_2 ])
+            '### Statistics for all Processes': mo.vstack([ total_statistics_1, total_statistics_2 ])
             },
             multiple = True
         )
 
     statistics_pt = mo.accordion({
-            '### Statistics for all Processes': mo.vstack([ overall_statistics_1, overall_statistics_2 ]),
-            '### Statistics for Filter-Settings': mo.vstack([ filtered_statistics_widgets_pt ]),
+            '### Statistics for all Processes': mo.vstack([ total_statistics_1, total_statistics_2 ]),
+            '### Statistics for Filter-Settings': mo.vstack([ filtered_statistics_pt_1, filtered_statistics_pt_2 ]),
             },
             multiple = True
         )
 
     statistics_ab = mo.accordion({
-            '### Statistics for all Processes': mo.vstack([ overall_statistics_1, overall_statistics_2 ]),
-            '### Statistics for Filter-Settings - Process-Tree A': mo.vstack([ filtered_statistics_widgets_a ]),
-            '### Statistics for Filter-Settings - Process-Tree B': mo.vstack([ filtered_statistics_widgets_b ]),
+            '### Statistics for all Processes': mo.vstack([ total_statistics_1, total_statistics_2 ]),
+            '### Statistics for Filter-Settings - Process-Tree A': mo.vstack([ filtered_statistics_widgets_a_1, filtered_statistics_widgets_a_2 ]),
+            '### Statistics for Filter-Settings - Process-Tree B': mo.vstack([ filtered_statistics_widgets_b_1, filtered_statistics_widgets_b_2 ]),
             },
             multiple = True
         )  
 
     if individual_journey_input_id.value != '':
         statistics_ij = mo.accordion({
-                '### Statistics for all Processes': mo.vstack([ overall_statistics_1, overall_statistics_2 ]),
+                '### Statistics for all Processes': mo.vstack([ total_statistics_1, total_statistics_2 ]),
                 '### Statistics for the individual Journey': mo.vstack([ individual_journey_statistics ])
                 },
                 multiple = True
@@ -625,6 +549,7 @@ def _(
     ms_include_steps,
     ms_include_steps_fc_a,
     ms_include_steps_fc_b,
+    settings,
     statistics_row_1,
     statistics_row_2,
 ):
@@ -667,7 +592,7 @@ def _(
                                               statistics_row_2,
                                               mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps.value}")], widths=[1,1], align="stretch"),
                                              ])
-    tab_se = mo.hstack([])
+    tab_se = mo.hstack([settings])
     return tab_ab, tab_ai, tab_gs, tab_ij, tab_pt, tab_se
 
 
@@ -782,11 +707,6 @@ def _(
 
             break
     return filter_group, statistics, viewer
-
-
-@app.cell
-def _():
-    return
 
 
 @app.cell
@@ -981,14 +901,20 @@ def _(ms_exclude_steps, ms_include_steps, ms_meta_search_1):
 
 @app.cell
 def _(dropdown_projects, end_date, sql_parts_pt, start_date):
-    filtered_statistics_pt = sql_filtered_statistics(env=env, project=dropdown_projects.value, start_date=start_date.value, end_date=end_date.value, sql_parts=sql_parts_pt)
-    return (filtered_statistics_pt,)
+    sql_filtered_statistics_pt_1 = sql_filtered_statistics_1(env=env, project=dropdown_projects.value, start_date=start_date.value, end_date=end_date.value, sql_parts=sql_parts_pt)
+    sql_filtered_statistics_pt_2 = sql_filtered_statistics_2(env=env, project=dropdown_projects.value, start_date=start_date.value, end_date=end_date.value, sql_parts=sql_parts_pt)
+    return sql_filtered_statistics_pt_1, sql_filtered_statistics_pt_2
 
 
 @app.cell
-def _(dataframe_statistics_filtered_pt):
-    filtered_statistics_widgets_pt = filtered_statistics_widgets(dataframe_statistics_filtered_pt)
-    return (filtered_statistics_widgets_pt,)
+def _(
+    dataframe_statistics_filtered_pt_1,
+    dataframe_statistics_filtered_pt_2,
+    end_date,
+    start_date,
+):
+    filtered_statistics_widgets_pt_1 = filtered_statistics_widgets(dataframe_statistics_filtered_pt_1, dataframe_statistics_filtered_pt_2, start_date.value, end_date.value)
+    return
 
 
 @app.cell
@@ -999,8 +925,9 @@ def _(ms_exclude_steps_fc_a, ms_include_steps_fc_a, ms_meta_search_1_fc_a):
 
 @app.cell
 def _(dropdown_projects, end_date_fc_a, sql_parts_a, start_date_fc_a):
-    filtered_statistics_a  = sql_filtered_statistics(env=env, project=dropdown_projects.value, start_date=start_date_fc_a.value, end_date=end_date_fc_a.value, sql_parts=sql_parts_a)
-    return (filtered_statistics_a,)
+    sql_filtered_statistics_a_1  = sql_filtered_statistics_1(env=env, project=dropdown_projects.value, start_date=start_date_fc_a.value, end_date=end_date_fc_a.value, sql_parts=sql_parts_a)
+    sql_filtered_statistics_a_2  = sql_filtered_statistics_2(env=env, project=dropdown_projects.value, start_date=start_date_fc_a.value, end_date=end_date_fc_a.value, sql_parts=sql_parts_a)
+    return sql_filtered_statistics_a_1, sql_filtered_statistics_a_2
 
 
 @app.cell
@@ -1010,21 +937,10 @@ def _(ms_exclude_steps_fc_b, ms_include_steps_fc_b, ms_meta_search_1_fc_b):
 
 
 @app.cell
-def _(statistics_filtered_a):
-    filtered_statistics_widgets_a = filtered_statistics_widgets(statistics_filtered_a)
-    return (filtered_statistics_widgets_a,)
-
-
-@app.cell
 def _(dropdown_projects, end_date_fc_b, sql_parts_b, start_date_fc_b):
-    filtered_statistics_b  = sql_filtered_statistics(env=env, project=dropdown_projects.value, start_date=start_date_fc_b.value, end_date=end_date_fc_b.value, sql_parts=sql_parts_b)
-    return (filtered_statistics_b,)
-
-
-@app.cell
-def _(statistics_filtered_b):
-    filtered_statistics_widgets_b = filtered_statistics_widgets(statistics_filtered_b)
-    return (filtered_statistics_widgets_b,)
+    sql_filtered_statistics_b_1  = sql_filtered_statistics_1(env=env, project=dropdown_projects.value, start_date=start_date_fc_b.value, end_date=end_date_fc_b.value, sql_parts=sql_parts_b)
+    sql_filtered_statistics_b_2  = sql_filtered_statistics_2(env=env, project=dropdown_projects.value, start_date=start_date_fc_b.value, end_date=end_date_fc_b.value, sql_parts=sql_parts_b)
+    return sql_filtered_statistics_b_1, sql_filtered_statistics_b_2
 
 
 @app.cell
@@ -1038,39 +954,105 @@ def _(list_available_steps):
 
 
 @app.cell
-def _(filtered_statistics_pt):
-    dataframe_statistics_filtered_pt = mo.sql(
+def sql__statistics_total():
+    statistics_total = mo.sql(
         f"""
-        {filtered_statistics_pt}
+        SELECT
+            COUNT(*)                               AS num_journeys,
+            MIN(duration_minutes)                  AS min_duration_minutes,
+            MEDIAN(duration_minutes)               AS median_duration_minutes,
+            AVG(duration_minutes)                  AS avg_duration_minutes,
+            MAX(duration_minutes)                  AS max_duration_minutes,
+            STDDEV(duration_minutes)               AS stddev_duration_minutes,
+            MIN(min_datetime)                      AS earliest_eventdate,
+            MAX(max_datetime)                      AS most_recent_eventdate
+        FROM (
+            SELECT 
+                EVENT_ID,
+                MIN(TO_DATE(EVENT_TIME, 'DD-MM-YYYY')) AS min_datetime,
+                MAX(TO_DATE(EVENT_TIME, 'DD-MM-YYYY')) AS max_datetime,
+                MINUTES_BETWEEN(MAX(EVENT_TIME), MIN(EVENT_TIME)) AS duration_minutes
+            FROM {env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
+            WHERE PROJECT_ID = 'APF'
+            GROUP BY EVENT_ID
+        ) AS durations;
         """,
         output=False,
         engine=Exasol_Database_Engine
     )
-    return (dataframe_statistics_filtered_pt,)
+    return (statistics_total,)
 
 
 @app.cell
-def _(filtered_statistics_b):
-    statistics_filtered_b = mo.sql(
+def sql__filtered_statistics_pt_1(sql_filtered_statistics_pt_1):
+    dataframe_statistics_filtered_pt_1 = mo.sql(
         f"""
-        {filtered_statistics_b}
+        {sql_filtered_statistics_pt_1}
         """,
         output=False,
         engine=Exasol_Database_Engine
     )
-    return (statistics_filtered_b,)
+    return (dataframe_statistics_filtered_pt_1,)
 
 
 @app.cell
-def _(filtered_statistics_a):
-    statistics_filtered_a = mo.sql(
+def sql__filtered_statistics_pt_2(sql_filtered_statistics_pt_2):
+    dataframe_statistics_filtered_pt_2 = mo.sql(
         f"""
-        {filtered_statistics_a}
+        {sql_filtered_statistics_pt_2}
         """,
         output=False,
         engine=Exasol_Database_Engine
     )
-    return (statistics_filtered_a,)
+    return (dataframe_statistics_filtered_pt_2,)
+
+
+@app.cell
+def sql__filtered_statistics_1_1(sql_filtered_statistics_a_1):
+    dataframe_statistics_filtered_a_1 = mo.sql(
+        f"""
+        {sql_filtered_statistics_a_1}
+        """,
+        output=False,
+        engine=Exasol_Database_Engine
+    )
+    return (dataframe_statistics_filtered_a_1,)
+
+
+@app.cell
+def sql__filtered_statistics_a_2(sql_filtered_statistics_a_2):
+    dataframe_statistics_filtered_a_2 = mo.sql(
+        f"""
+        {sql_filtered_statistics_a_2}
+        """,
+        output=False,
+        engine=Exasol_Database_Engine
+    )
+    return (dataframe_statistics_filtered_a_2,)
+
+
+@app.cell
+def sql__filtered_statistics_b_1(sql_filtered_statistics_b_1):
+    dataframe_statistics_filtered_b_1 = mo.sql(
+        f"""
+        {sql_filtered_statistics_b_1}
+        """,
+        output=False,
+        engine=Exasol_Database_Engine
+    )
+    return (dataframe_statistics_filtered_b_1,)
+
+
+@app.cell
+def sql__filtered_statistics_b_2(sql_filtered_statistics_b_2):
+    dataframe_statistics_filtered_b_2 = mo.sql(
+        f"""
+        {sql_filtered_statistics_b_2}
+        """,
+        output=False,
+        engine=Exasol_Database_Engine
+    )
+    return (dataframe_statistics_filtered_b_2,)
 
 
 @app.cell
@@ -1498,10 +1480,6 @@ def visual__create_flowchart(
 
         _used_nodes = str(used_nodes).replace("{", "(").replace("}", ")")
 
-        #rows = connection.execute(f"SELECT * FROM EXASOL_DIB_PROCESS_MINING.STEPS WHERE SAFE_STEP IN {_used_nodes} AND PROJECT_ID = '{dropdown_projects.value}'").fetchall()
-        #cols = connection.meta.sql_columns(f"SELECT * FROM EXASOL_DIB_PROCESS_MINING.STEPS WHERE SAFE_STEP IN {_used_nodes} AND PROJECT_ID = '{dropdown_projects.value}'")
-        #_nodes = pd.DataFrame(rows, columns=cols)
-
         with Exasol_Database_Engine.connect() as _con:
             _rows = _con.execute(f"SELECT * FROM {env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.STEPS WHERE SAFE_STEP IN {_used_nodes} AND PROJECT_ID = '{dropdown_projects.value}'").fetchall()
             _nodes = pl.DataFrame(_rows)
@@ -1523,9 +1501,6 @@ def visual__create_flowchart(
             node_styles += style + "\n"
 
         return node_styles
-
-
-
 
 
     def create_journeys_flowchart(data, metric, connection):
@@ -1960,7 +1935,37 @@ def _(
 
 
 @app.cell
-def llm__single_flowchart(ai_button, mermaid_diagram, slider_temperature_llm):
+def _():
+    ################
+    ## AI Section ##
+    ################
+    return
+
+
+@app.cell
+def _(dropdown_projects):
+    df_system_prompt = mo.sql(
+        f"""
+        SELECT
+        	PROMPT as prompt
+        FROM
+            {env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.PROMPTS
+        WHERE
+        	PROJECT_ID = '{dropdown_projects.value}'
+        """,
+        output=False,
+        engine=Exasol_Database_Engine
+    )
+    return (df_system_prompt,)
+
+
+@app.cell
+def llm__single_flowchart(
+    ai_button,
+    df_system_prompt,
+    mermaid_diagram,
+    slider_temperature_llm,
+):
 
     from tools.llm.llm_flowchart import llm_flowchart_analysis
 
@@ -1968,35 +1973,33 @@ def llm__single_flowchart(ai_button, mermaid_diagram, slider_temperature_llm):
 
     _server = env['KEA_PROCESS_INSIGHTS_LLM_SERVER_URL']
     _token = env['KEA_PROCESS_INSIGHTS_LLM_API_TOKEN']
-
+    _prompt = df_system_prompt['prompt'][0]
 
     if ai_button.value:
         #print("Inferencing LLM")
-        llm_result_single_flowchart=ResultText(llm_flowchart_analysis(_server, _token, mermaid_diagram, slider_temperature_llm))
+        llm_result_single_flowchart=ResultText(llm_flowchart_analysis(_server, _token, _prompt, mermaid_diagram, slider_temperature_llm))
     return (llm_result_single_flowchart,)
 
 
 @app.cell
 def _():
-    #mo.md(str(llm_result_single_flowchart))
+    ######################
+    ## Settings Section ##
+    ######################
     return
 
 
 @app.cell
-def _():
-    #print(mermaid_diagram)
-    return
+def _(df_system_prompt):
+    settings = mo.vstack([mo.accordion(
+        {
+            "### Definition - AI System Prompt": mo.ui.text_area(value=df_system_prompt['prompt'][0], placeholder="System Prompt goees here...", label='System Prompt', full_width=True, rows = 32, max_length=2048, debounce = 1),
+            "### Configuration - Steps": mo.md("Nothing!"),
+            "### Configuration - Metas": mo.vstack([mo.md('Metas')]),
+        },
 
-
-@app.cell
-def _(result_AI_analysis):
-    def _():
-        if result_AI_analysis:
-            clean_text = result_AI_analysis.dispaly_result
-        else:
-            clean_text = "Hello Dirk"
-        return
-    return
+    )],align='stretch')
+    return (settings,)
 
 
 @app.cell
