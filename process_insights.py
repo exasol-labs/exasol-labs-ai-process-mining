@@ -25,6 +25,7 @@ with app.setup:
     from dotenv import load_dotenv, dotenv_values
     from sqlalchemy import create_engine, sql, text
 
+    from tools.llm.system_prompt import save_system_prompt
     from tools.sql_builder.sql_builder import filter_to_sql
     from tools.sql_builder.sql_builder import sql_filtered_statistics_1, sql_filtered_statistics_2
     from tools.statistics.statistic_widgets import filtered_statistics_widgets, total_statistics_widgets
@@ -75,6 +76,8 @@ def sql__available_projects():
             TITLE
         FROM
             {env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.PROJECTS
+        ORDER BY
+        	PROJECT_ID ASC
         """,
         output=False,
         engine=Exasol_Database_Engine
@@ -101,6 +104,11 @@ def sql__meta_descriptions(dropdown_projects):
     return (meta_descriptions,)
 
 
+@app.function
+def project_change(x):
+    print("x:",x)
+
+
 @app.cell
 def dropdown__projects_list(list_available_projects):
     # Convert to a dictionary: TITLE as key, PROJECT_ID as value (adjust if needed)
@@ -123,7 +131,8 @@ def dropdown__projects_list(list_available_projects):
     dropdown_projects = mo.ui.dropdown(options=projects_dict, 
                                        label="Select a project", 
                                        searchable=True, 
-                                       value=selected)
+                                       value=selected, 
+                                       on_change=project_change)
     return (dropdown_projects,)
 
 
@@ -175,7 +184,7 @@ def title__working_project(dropdown_projects):
 
 
 @app.cell
-def sql__num_statistics():
+def sql__num_statistics(dropdown_projects):
     statistics_num_steps = mo.sql(
         f"""
         SELECT 
@@ -184,7 +193,7 @@ def sql__num_statistics():
         FROM 
             {env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
         WHERE
-            PROJECT_ID = 'APF'
+            PROJECT_ID = '{dropdown_projects.value}'
         """,
         output=False,
         engine=Exasol_Database_Engine
@@ -193,13 +202,15 @@ def sql__num_statistics():
 
 
 @app.cell
-def sql__list_metas():
+def sql__list_metas(dropdown_projects):
     list_journey_metas = mo.sql(
         f"""
         SELECT
         	DISTINCT META_1
         FROM
         	{env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
+        WHERE
+            PROJECT_ID = '{dropdown_projects.value}'
         ORDER BY META_1 ASC
         """,
         output=False,
@@ -209,7 +220,7 @@ def sql__list_metas():
 
 
 @app.cell
-def sql__unique_steps():
+def sql__unique_steps(dropdown_projects):
     list_available_steps = mo.sql(
         f"""
         SELECT 
@@ -217,7 +228,7 @@ def sql__unique_steps():
         FROM
             {env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.STEPS
         WHERE
-            PROJECT_ID = 'APF'
+            PROJECT_ID = '{dropdown_projects.value}'
         ORDER BY
         	STEP ASC
         """,
@@ -228,8 +239,14 @@ def sql__unique_steps():
 
 
 @app.cell
+def _():
+    switch_visualization_type = mo.ui.switch(label='Flowchart / Sankey Diagram')
+    return (switch_visualization_type,)
+
+
+@app.cell
 def switch__flowchart_orienttion():
-    switch_flowchart_orientation = mo.ui.switch(label="Orientation: Top Down / Left-Right")
+    switch_flowchart_orientation = mo.ui.switch(label="Orientation Flowchart: Top Down / Left-Right")
     return (switch_flowchart_orientation,)
 
 
@@ -247,6 +264,7 @@ def dropdown__metric_selection():
 
 @app.cell
 def _():
+    ## Hier kommt die Switch-Steuerung hin!
     return
 
 
@@ -271,9 +289,11 @@ def ui__filter_groups(
     start_date_fc_a,
     start_date_fc_b,
     switch_flowchart_orientation,
+    switch_visualization_type,
 ):
 
     filter_process_tree = mo.vstack([
+                    mo.hstack([switch_visualization_type]),
                     mo.hstack([switch_flowchart_orientation]),
                     mo.hstack([start_date, mo.md("->"), end_date], gap=0.1, justify="start"),
                     mo.vstack([
@@ -954,7 +974,7 @@ def _(list_available_steps):
 
 
 @app.cell
-def sql__statistics_total():
+def sql__statistics_total(dropdown_projects):
     statistics_total = mo.sql(
         f"""
         SELECT
@@ -972,9 +992,12 @@ def sql__statistics_total():
                 MIN(TO_DATE(EVENT_TIME, 'DD-MM-YYYY')) AS min_datetime,
                 MAX(TO_DATE(EVENT_TIME, 'DD-MM-YYYY')) AS max_datetime,
                 MINUTES_BETWEEN(MAX(EVENT_TIME), MIN(EVENT_TIME)) AS duration_minutes
-            FROM {env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
-            WHERE PROJECT_ID = 'APF'
-            GROUP BY EVENT_ID
+            FROM 
+            	{env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
+            WHERE 
+            	PROJECT_ID = '{dropdown_projects.value}'
+            GROUP BY 
+            	EVENT_ID
         ) AS durations;
         """,
         output=False,
@@ -1064,6 +1087,11 @@ def _():
 
 
 @app.cell
+def _():
+    return
+
+
+@app.cell
 def _(get_state_inc, handle_inc, options_list):
     # Create the multiselect components
 
@@ -1145,7 +1173,8 @@ def compile__flowchart_structure(dropdown_projects, end_date, start_date):
                 FROM
                     {env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
                 WHERE
-                    EVENT_TIME BETWEEN DATE '{start_date.value}' AND DATE '{end_date.value}'
+                    PROJECT_ID = '{dropdown_projects.value}' AND
+                    EVENT_TIME >= '{start_date.value} 00:00:00' AND EVENT_TIME <= '{end_date.value} 23:59:59'
 
             ),
 
@@ -1324,97 +1353,6 @@ def _(sql_build_flowchart_fc_b):
     return (dataframe_flowchart_fc_b,)
 
 
-@app.cell(hide_code=True)
-def _():
-    sql_build_transition = f"""
-    WITH EXC_EVENTS AS (
-            SELECT
-                TO_CHAR(CAST(EVENT_TIME AS DATE), 'YYYY-MM-DD') AS DATUM,
-                EVENT_ID
-            FROM EXASOL_DIB_PROCESS_MINING.JOURNEYS
-            WHERE PROJECT_ID = 'APF'
-              AND EVENT_TIME BETWEEN DATE '2025-12-01' AND DATE '2026-01-01'
-              AND STEP IN ('DENIED Boarding Dom', 'DENIED Boarding Int')
-              AND META_1 IN ('Terminal-1', 'Terminal-2')
-            GROUP BY
-                TO_CHAR(CAST(EVENT_TIME AS DATE), 'YYYY-MM-DD'),
-                EVENT_ID
-        ),
-
-        INC_EVENTS AS (
-            SELECT
-                TO_CHAR(CAST(EVENT_TIME AS DATE), 'YYYY-MM-DD') AS DATUM,
-                EVENT_ID
-            FROM EXASOL_DIB_PROCESS_MINING.JOURNEYS
-            WHERE PROJECT_ID = 'APF'
-              AND EVENT_TIME BETWEEN DATE '2025-12-01' AND DATE '2026-01-01'
-              AND STEP IN ('ENTER Departure Hall')
-              AND META_1 IN ('Terminal-1', 'Terminal-2')
-            GROUP BY
-                TO_CHAR(CAST(EVENT_TIME AS DATE), 'YYYY-MM-DD'),
-                EVENT_ID
-        ),
-
-
-        FILTERED_JOURNEYS AS (
-            SELECT
-                J.*
-            FROM EXASOL_DIB_PROCESS_MINING.JOURNEYS j
-            LEFT JOIN INC_EVENTS I ON J.EVENT_ID = I.EVENT_ID
-            LEFT JOIN EXC_EVENTS R ON J.EVENT_ID = R.EVENT_ID
-            WHERE R.EVENT_ID IS NULL
-              AND (
-                    I.EVENT_ID IS NOT NULL
-                    OR NOT EXISTS (SELECT 1 FROM INC_EVENTS)
-                  )
-        ),
-
-        RAW_CHAIN AS (
-            SELECT
-                J.EVENT_ID,
-                J.STEP AS FROM_STEP,
-                LEAD(J.STEP) OVER (
-                    PARTITION BY J.EVENT_ID
-                    ORDER BY J.EVENT_TIME
-                ) AS TO_STEP,
-                J.EVENT_TIME AS FROM_TIME,
-                LEAD(J.EVENT_TIME) OVER (
-                    PARTITION BY J.EVENT_ID
-                    ORDER BY J.EVENT_TIME
-                ) AS TO_TIME
-            FROM FILTERED_JOURNEYS j
-        ),
-
-        PROCESS_CHAINS AS (
-            SELECT
-                EVENT_ID,
-                FROM_STEP,
-                TO_STEP,
-                FROM_TIME,
-                TO_TIME,
-                TO_CHAR(CAST(FROM_TIME AS DATE), 'YYYY-MM-DD') AS DATUM,
-                SECONDS_BETWEEN(TO_TIME, FROM_TIME) AS DURATION_SECONDS
-            FROM RAW_CHAIN
-        )
-
-
-    SELECT
-        FROM_STEP,
-        TO_STEP,
-        COUNT(DISTINCT EVENT_ID) AS NUM_JOURNEYS,
-        AVG(DURATION_SECONDS) AS AVG_SECONDS
-    FROM PROCESS_CHAINS
-    WHERE TO_STEP IS NOT NULL
-      AND FROM_STEP <> TO_STEP
-    GROUP BY
-        FROM_STEP,
-        TO_STEP
-    ORDER BY
-        FROM_STEP
-    """
-    return
-
-
 @app.function
 def nodes_for_sql(data):
 
@@ -1456,7 +1394,7 @@ def visual__create_flowchart(
             """).fetchall()
 
         # Group by BELONGS_TO
-        from collections import defaultdict
+
 
         groups = defaultdict(list)
         for step, group, shape in belongs_to:
@@ -1503,8 +1441,9 @@ def visual__create_flowchart(
         return node_styles
 
 
-    def create_journeys_flowchart(data, metric, connection):
+    def create_journeys_flowchart(data, metric, connection) -> dict:
 
+        print("Begin Creating Flowchsrt")
         if switch_flowchart_orientation.value:
             mermaid_content = "flowchart LR\n"
         else:
@@ -1518,6 +1457,8 @@ def visual__create_flowchart(
         visited_nodes = set()
         edges = []
 
+        print(data)
+
         for start, end, sum_transitions, avg_time, min_time, max_time, median_time, stddev_time in data.iter_rows():
             nodes.add(start)
             nodes.add(end)
@@ -1527,9 +1468,14 @@ def visual__create_flowchart(
 
             edges.append((start, end, sum_transitions, avg_time, min_time, max_time, median_time, stddev_time))
 
+        if DEBUG:
+            print(visited_nodes)
+
         _subgraphs_list = get_belongs_to(visited_nodes, connection)
 
         mermaid_content += _subgraphs_list + "\n"
+
+        sankey_content = "\n \n sankey \n \n"
 
         # Add edges with weights
         i = 1
@@ -1567,11 +1513,21 @@ def visual__create_flowchart(
                         e{i}@{{ animate: true }}
             """
             )
+            sankey_metric = 1 # int(print_metric.replace(',',''))
+            sankey_content += f"{start}:,{end}:,{sankey_metric} \n"
+
+
             i = i + 1
 
         node_styles = generate_styles(visited_nodes, connection)
 
-        return mermaid_content + "\n\n" + str(node_styles)
+        flowchart = mermaid_content + "\n\n" + str(node_styles)
+
+        return {
+                 "flowchart": flowchart,
+                 "sankey": sankey_content,
+
+        }
 
 
     ##
@@ -1580,17 +1536,28 @@ def visual__create_flowchart(
 
     with Exasol_Database_Engine.connect() as _con:        
 
-        mermaid_diagram = create_journeys_flowchart(dataframe_flowchart, metric_selection_pt.value, _con)
+        mermaid_diagram = create_journeys_flowchart(dataframe_flowchart, metric_selection_pt.value, _con)['flowchart']
         mermaid_diagram += "\n\n"
+
+        sankey_diagram = create_journeys_flowchart(dataframe_flowchart, metric_selection_pt.value, _con)['sankey']
 
     if DEBUG:
         print(mermaid_diagram)
+        print(sankey_diagram)
     return (
         create_journeys_flowchart,
         generate_styles,
         get_belongs_to,
         mermaid_diagram,
+        sankey_diagram,
     )
+
+
+@app.cell
+def _(create_journeys_flowchart, dataframe_flowchart, metric_selection_pt):
+    with Exasol_Database_Engine.connect() as _con:   
+        print(create_journeys_flowchart(dataframe_flowchart, metric_selection_pt.value, _con)['flowchart'])
+    return
 
 
 @app.cell
@@ -1603,10 +1570,10 @@ def _(
 ):
     with Exasol_Database_Engine.connect() as _con:        
 
-        mermaid_diagram_fc_a = create_journeys_flowchart(dataframe_flowchart_fc_a, metric_selection_a.value, _con)
+        mermaid_diagram_fc_a = create_journeys_flowchart(dataframe_flowchart_fc_a, metric_selection_a.value, _con)['flowchart']
         mermaid_diagram_fc_a += "\n\n"
 
-        mermaid_diagram_fc_b = create_journeys_flowchart(dataframe_flowchart_fc_b, metric_selection_b.value, _con)
+        mermaid_diagram_fc_b = create_journeys_flowchart(dataframe_flowchart_fc_b, metric_selection_b.value, _con)['flowchart']
         mermaid_diagram_fc_b += "\n\n"
     return mermaid_diagram_fc_a, mermaid_diagram_fc_b
 
@@ -1808,11 +1775,7 @@ def _(
 
                 # Build Mermaid-like content block
                 mermaid_content_individual_journey += (
-                    #f"\n    {src_clean}[{src_clean}__________\n{st}__________\n] e{transition_num}@== ...Step-{transition_num} : {duration} mins....... ==>"
                     f"\n    {src_clean} e{transition_num}@== ...Step-{transition_num} : {duration} mins....... ==>"
-                    #f"@{{ shape: {shape} }} == ...Step-{transition_num} : {duration} mins....... ==>"
-                    #f" == ...Step-{transition_num} : {duration} mins....... ==>"
-                    #f"{dst_clean}[{dst_clean}__________\n{et}__________\n]\n"
                     f"{dst_clean}\n"
                     f"e{transition_num}@{{animate: true}}"
 
@@ -1991,9 +1954,26 @@ def _():
 
 @app.cell
 def _(df_system_prompt):
+    text_arera_system_prompt = mo.ui.text_area(value=df_system_prompt['prompt'][0], 
+                                               placeholder = 'System Prompt goees here...', 
+                                               label = 'System Prompt', 
+                                               full_width = True, 
+                                               rows = 24, 
+                                               max_length = 2048, 
+                                               debounce = 1)
+
+
+
+
+    button_save_system_prompt = mo.ui.run_button(label='Save System Prompt for AI Overview', kind='success', on_change=save_system_prompt)
+    return button_save_system_prompt, text_arera_system_prompt
+
+
+@app.cell
+def _(button_save_system_prompt, text_arera_system_prompt):
     settings = mo.vstack([mo.accordion(
         {
-            "### Definition - AI System Prompt": mo.ui.text_area(value=df_system_prompt['prompt'][0], placeholder="System Prompt goees here...", label='System Prompt', full_width=True, rows = 32, max_length=2048, debounce = 1),
+            "### Definition - AI System Prompt": mo.vstack([text_arera_system_prompt, button_save_system_prompt]),
             "### Configuration - Steps": mo.md("Nothing!"),
             "### Configuration - Metas": mo.vstack([mo.md('Metas')]),
         },
@@ -2084,7 +2064,7 @@ def _(statistics_graph_steps):
         .mark_bar()
         .encode(
             x=alt.X(field='cnt', type='quantitative', aggregate='mean'),
-            y=alt.Y(field='step', type='ordinal', stack=False, sort='asscending'),
+            y=alt.Y(field='step', type='ordinal', stack=False, sort='ascending'),
             color=alt.Color(field='cnt', type='quantitative', scale={
                 'scheme': 'redblue'
             }),
@@ -2153,7 +2133,7 @@ def _(statistics_heatmap_steps_month):
             x=alt.X(field='date_month', type='nominal'),
             y=alt.Y(field='step', type='nominal'),
             color=alt.Color(field='cnt', type='quantitative', scale={
-                'scheme': 'Set1'
+                'scheme': 'set1'
             }, aggregate='sum'),
             row=alt.Row(field='step', type='nominal', bin={
                 'maxbins': 6
@@ -2306,8 +2286,62 @@ def _(path_statistics_bin_dropdown, statistics_path_analysis):
 
 @app.cell
 def _(path_statistics_bin_dropdown, path_statistics_chart):
-    path_statistics = mo.vstack([path_statistics_bin_dropdown, path_statistics_chart])
+    path_statistics = mo.hstack([mo.vstack([path_statistics_bin_dropdown, path_statistics_chart])],widths=[1,1])
     return (path_statistics,)
+
+
+@app.cell
+def _():
+    mo.mermaid('''
+
+    sankey
+
+    ENTER Baggage Drop:,LEAVE Baggage Drop:,34995
+    ENTER Boarding Gate Dom:,BOARD Aircraft Dom:,86506 
+    ENTER Boarding Gate Dom:,DENIED Boarding Dom:,4650
+    ENTER Boarding Gate Int:,BOARD Aircraft Int:,28557
+    ENTER Boarding Gate Int:,DENIED Boarding Int:,1506
+    ENTER Check-In:,LEAVE Check-In:,36793
+    ENTER Departure Hall:,ENTER Security Check:,49430
+    ENTER Departure Hall:,ENTER Baggage Drop:,34995 
+    ENTER Departure Hall:,LEAVE Departure Hall:,2413 
+    ENTER Departure Hall:,ENTER Check-In:,36793
+    ENTER Dining Area Dom:,LEAVE Dining Area Dom:,43268 
+    ENTER Dining Area Int:,LEAVE Dining Area Int:,11338 
+    ENTER Duty Free Dom:,LEAVE Duty Free Dom:,40918 
+    ENTER Duty Free Int:,LEAVE Duty Free Int:,13646 
+    ENTER Lounge Dom:,LEAVE Lounge Dom:,31595 
+    ENTER Lounge Int:,LEAVE Lounge Int:,11163 
+    ENTER Passport Control:,LEAVE Passport Control:,30065 
+    ENTER Security Check:,LEAVE Security Check:,121218
+    LEAVE Baggage Drop:,ENTER Security Check:,34995 
+    LEAVE Check-In:,ENTER Security Check:,36793 
+    LEAVE Dining Area Dom:,ENTER Boarding Gate Dom:,32338 
+    LEAVE Dining Area Dom:,ENTER Duty Free Dom:,9117 
+    LEAVE Dining Area Dom:,ENTER Lounge Dom:,7065 
+    LEAVE Dining Area Int:,ENTER Lounge Int:,1741 
+    LEAVE Dining Area Int:,ENTER Boarding Gate Int:,8484 
+    LEAVE Dining Area Int:,ENTER Duty Free Int:,2411 
+    LEAVE Duty Free Dom:,ENTER Dining Area Dom:,15054 
+    LEAVE Duty Free Dom:,ENTER Boarding Gate Dom:,21271 
+    LEAVE Duty Free Dom:,ENTER Lounge Dom:,9007 
+    LEAVE Duty Free Int:,ENTER Lounge Int:,2991 
+    LEAVE Duty Free Int:,ENTER Boarding Gate Int:,7156 
+    LEAVE Duty Free Int:,ENTER Dining Area Int:,4977 
+    ''')
+    return
+
+
+@app.cell
+def _(sankey_diagram):
+    mo.mermaid(f"{sankey_diagram}")
+    return
+
+
+@app.cell
+def _(sankey_diagram):
+    print(sankey_diagram)
+    return
 
 
 if __name__ == "__main__":
