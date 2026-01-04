@@ -104,9 +104,197 @@ def sql__meta_descriptions(dropdown_projects):
     return (meta_descriptions,)
 
 
-@app.function
-def project_change(x):
-    print("x:",x)
+@app.cell
+def _():
+    ########################
+    ## Filter Definitions ##
+    ########################
+    return
+
+
+@app.cell
+def filter__date_ranges(statistics_total):
+    ##
+    ## Building Input for Date Ranges
+    ##
+
+    min_date = ""
+    max_date = ""
+
+    min_date = str(statistics_total['earliest_eventdate'][0])
+    max_date = str(statistics_total['most_recent_eventdate'][0])
+
+    start_date_dt = datetime.strptime(min_date, "%Y-%m-%d")
+    end_date_dt = datetime.strptime(max_date, "%Y-%m-%d")
+    start_date_limited_dt = end_date_dt - timedelta(days=30)
+
+    get_start_date, set_start_date = mo.state(start_date_limited_dt)
+    get_end_date, set_end_date = mo.state(end_date_dt)
+
+    ##
+    ## Date Selection Boxes for single flowchart visualization
+    ##
+
+    start_date = mo.ui.date(
+        #label="Start Date",
+        value=get_start_date().strftime("%Y-%m-%d"),
+        on_change=lambda x: set_start_date(pd.to_datetime(x))
+    )
+
+    end_date = mo.ui.date(
+        #label="End Date",
+        value=get_end_date().strftime("%Y-%m-%d"),
+        on_change=lambda x: set_end_date(pd.to_datetime(x))
+    )
+
+    ##
+    ## Date Selection Boxes for A/B flowchart visualization
+    ##
+
+
+    start_date_fc_a = mo.ui.date(
+        #label="Start Date",
+        value=get_start_date().strftime("%Y-%m-%d"),
+        on_change=lambda x: set_start_date(pd.to_datetime(x))
+    )
+
+    end_date_fc_a = mo.ui.date(
+        #label="End Date",
+        value=get_end_date().strftime("%Y-%m-%d"),
+        on_change=lambda x: set_end_date(pd.to_datetime(x))
+    )
+
+    start_date_fc_b = mo.ui.date(
+        #label="Start Date",
+        value=get_start_date().strftime("%Y-%m-%d"),
+        on_change=lambda x: set_start_date(pd.to_datetime(x))
+    )
+
+    end_date_fc_b = mo.ui.date(
+        #label="End Date",
+        value=get_end_date().strftime("%Y-%m-%d"),
+        on_change=lambda x: set_end_date(pd.to_datetime(x))
+    )
+    return (
+        end_date,
+        end_date_fc_a,
+        end_date_fc_b,
+        start_date,
+        start_date_fc_a,
+        start_date_fc_b,
+    )
+
+
+@app.cell
+def filter__metric_selection():
+    _metrics_pt = ["Number of Journeys", "Average Transition Time", "Minimum Transition Time", "Median Transition Time", "StdDev Transition Time", "Maximum Transition Time"]
+    _metrics_a  = ["Number of Journeys", "Average Transition Time", "Minimum Transition Time", "Median Transition Time", "StdDev Transition Time", "Maximum Transition Time"]
+    _metrics_b  = ["Number of Journeys", "Average Transition Time", "Minimum Transition Time", "Median Transition Time", "StdDev Transition Time", "Maximum Transition Time"]
+
+    metric_selection_pt = mo.ui.multiselect(options=_metrics_pt, label='Metric ', value=['Number of Journeys'], full_width=True, max_selections=1)
+    metric_selection_a  = mo.ui.multiselect(options=_metrics_a,  label='Metric ', value=['Number of Journeys'], full_width=True, max_selections=1)
+    metric_selection_b  = mo.ui.multiselect(options=_metrics_b,  label='Metric ', value=['Number of Journeys'], full_width=True, max_selections=1)
+    return metric_selection_a, metric_selection_b, metric_selection_pt
+
+
+@app.cell
+def filter__meta_search(
+    list_journey_metas_1,
+    list_journey_metas_2,
+    list_journey_metas_3,
+    meta_descriptions,
+):
+    if meta_descriptions['meta_1'][0]:
+        ms_meta_search_1 = mo.ui.multiselect.from_series(list_journey_metas_1["meta_1"], label=f"Select {meta_descriptions['meta_1'][0]}", full_width=True)
+        ms_meta_search_1_fc_a = mo.ui.multiselect.from_series(list_journey_metas_1["meta_1"], label=f"Select {meta_descriptions['meta_1'][0]}", full_width=True)
+        ms_meta_search_1_fc_b = mo.ui.multiselect.from_series(list_journey_metas_1["meta_1"], label=f"Select {meta_descriptions['meta_1'][0]}", full_width=True)
+    else:
+        ms_meta_search_1 = ''
+        ms_meta_search_1_fc_a = ''
+        ms_meta_search_1_fc_b = ''
+
+    if meta_descriptions['meta_2'][0]:
+        ms_meta_search_2 = mo.ui.multiselect.from_series(list_journey_metas_2["meta_2"], label=f"Select {meta_descriptions['meta_2'][0]}", full_width=True)
+        ms_meta_search_2_fc_a = mo.ui.multiselect.from_series(list_journey_metas_2["meta_2"], label=f"Select {meta_descriptions['meta_2'][0]}", full_width=True)
+        ms_meta_search_2_fc_b = mo.ui.multiselect.from_series(list_journey_metas_2["meta_2"], label=f"Select {meta_descriptions['meta_2'][0]}", full_width=True)
+    else:
+        ms_meta_search_2 = ''
+        ms_meta_search_2_fc_a = ''    
+        ms_meta_search_2_fc_b = ''
+
+    if meta_descriptions['meta_3'][0]:
+        ms_meta_search_3 = mo.ui.multiselect.from_series(list_journey_metas_3["meta_3"], label=f"Select {meta_descriptions['meta_3'][0]}", full_width=True)
+        ms_meta_search_3_fc_a = mo.ui.multiselect.from_series(list_journey_metas_3["meta_3"], label=f"Select {meta_descriptions['meta_3'][0]}", full_width=True)
+        ms_meta_search_3_fc_b = mo.ui.multiselect.from_series(list_journey_metas_3["meta_3"], label=f"Select {meta_descriptions['meta_3'][0]}", full_width=True)
+    else:
+        ms_meta_search_3 = ''
+        ms_meta_search_3_fc_a = ''
+        ms_meta_search_3_fc_b = ''
+    return (
+        ms_meta_search_1,
+        ms_meta_search_1_fc_a,
+        ms_meta_search_1_fc_b,
+        ms_meta_search_2,
+        ms_meta_search_2_fc_a,
+        ms_meta_search_2_fc_b,
+        ms_meta_search_3,
+        ms_meta_search_3_fc_a,
+        ms_meta_search_3_fc_b,
+    )
+
+
+@app.cell
+def sql__list_metas(dropdown_projects):
+    list_journey_metas_1 = mo.sql(
+        f"""
+        SELECT
+        	DISTINCT META_1
+        FROM
+        	{env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
+        WHERE
+            PROJECT_ID = '{dropdown_projects.value}'
+        ORDER BY META_1 ASC
+        """,
+        output=False,
+        engine=Exasol_Database_Engine
+    )
+    return (list_journey_metas_1,)
+
+
+@app.cell
+def _(dropdown_projects):
+    list_journey_metas_2 = mo.sql(
+        f"""
+        SELECT
+        	DISTINCT META_2
+        FROM
+        	{env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
+        WHERE
+            PROJECT_ID = '{dropdown_projects.value}'
+        ORDER BY META_2 ASC
+        """,
+        output=False,
+        engine=Exasol_Database_Engine
+    )
+    return (list_journey_metas_2,)
+
+
+@app.cell
+def _(dropdown_projects):
+    list_journey_metas_3 = mo.sql(
+        f"""
+        SELECT
+        	DISTINCT META_3
+        FROM
+        	{env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
+        WHERE
+            PROJECT_ID = '{dropdown_projects.value}'
+        ORDER BY META_3 ASC
+        """,
+        output=False,
+        engine=Exasol_Database_Engine
+    )
+    return (list_journey_metas_3,)
 
 
 @app.cell
@@ -131,8 +319,7 @@ def dropdown__projects_list(list_available_projects):
     dropdown_projects = mo.ui.dropdown(options=projects_dict, 
                                        label="Select a project", 
                                        searchable=True, 
-                                       value=selected, 
-                                       on_change=project_change)
+                                       value=selected)
     return (dropdown_projects,)
 
 
@@ -202,24 +389,6 @@ def sql__num_statistics(dropdown_projects):
 
 
 @app.cell
-def sql__list_metas(dropdown_projects):
-    list_journey_metas = mo.sql(
-        f"""
-        SELECT
-        	DISTINCT META_1
-        FROM
-        	{env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
-        WHERE
-            PROJECT_ID = '{dropdown_projects.value}'
-        ORDER BY META_1 ASC
-        """,
-        output=False,
-        engine=Exasol_Database_Engine
-    )
-    return (list_journey_metas,)
-
-
-@app.cell
 def sql__unique_steps(dropdown_projects):
     list_available_steps = mo.sql(
         f"""
@@ -251,18 +420,6 @@ def switch__flowchart_orienttion():
 
 
 @app.cell
-def dropdown__metric_selection():
-    _metrics_pt = ["Number of Journeys", "Average Transition Time", "Minimum Transition Time", "Median Transition Time", "StdDev Transition Time", "Maximum Transition Time"]
-    _metrics_a  = ["Number of Journeys", "Average Transition Time", "Minimum Transition Time", "Median Transition Time", "StdDev Transition Time", "Maximum Transition Time"]
-    _metrics_b  = ["Number of Journeys", "Average Transition Time", "Minimum Transition Time", "Median Transition Time", "StdDev Transition Time", "Maximum Transition Time"]
-
-    metric_selection_pt = mo.ui.multiselect(options=_metrics_pt, label='Metric ', value=['Number of Journeys'], full_width=True, max_selections=1)
-    metric_selection_a  = mo.ui.multiselect(options=_metrics_a,  label='Metric ', value=['Number of Journeys'], full_width=True, max_selections=1)
-    metric_selection_b  = mo.ui.multiselect(options=_metrics_b,  label='Metric ', value=['Number of Journeys'], full_width=True, max_selections=1)
-    return metric_selection_a, metric_selection_b, metric_selection_pt
-
-
-@app.cell
 def _():
     ## Hier kommt die Switch-Steuerung hin!
     return
@@ -285,6 +442,12 @@ def ui__filter_groups(
     ms_meta_search_1,
     ms_meta_search_1_fc_a,
     ms_meta_search_1_fc_b,
+    ms_meta_search_2,
+    ms_meta_search_2_fc_a,
+    ms_meta_search_2_fc_b,
+    ms_meta_search_3,
+    ms_meta_search_3_fc_a,
+    ms_meta_search_3_fc_b,
     start_date,
     start_date_fc_a,
     start_date_fc_b,
@@ -301,6 +464,8 @@ def ui__filter_groups(
                         ms_include_steps, 
                         ms_exclude_steps,
                         ms_meta_search_1,
+                        ms_meta_search_2,
+                        ms_meta_search_3,
                     ]),
                 ],
                 gap=2,
@@ -325,6 +490,8 @@ def ui__filter_groups(
                         ms_include_steps_fc_a, 
                         ms_exclude_steps_fc_a,
                         ms_meta_search_1_fc_a,
+                        ms_meta_search_2_fc_a,
+                        ms_meta_search_3_fc_a,
                     ]),
                 ],
                 gap=2,
@@ -339,6 +506,8 @@ def ui__filter_groups(
                         ms_include_steps_fc_b, 
                         ms_exclude_steps_fc_b,
                         ms_meta_search_1_fc_b,
+                        ms_meta_search_2_fc_b,
+                        ms_meta_search_3_fc_b,
                     ]),
                 ],
                 gap=2,
@@ -392,6 +561,14 @@ def visual__sidebar(dropdown_projects, filter_group):
         ],
      width="17%"
     )
+    return
+
+
+@app.cell
+def _():
+    ################
+    ## Statistics ##
+    ################
     return
 
 
@@ -792,79 +969,6 @@ def _(tabs):
 
 
 @app.cell
-def picker_date_ranges(statistics_total):
-    ##
-    ## Building Input for Date Ranges
-    ##
-
-    min_date = ""
-    max_date = ""
-
-    min_date = str(statistics_total['earliest_eventdate'][0])
-    max_date = str(statistics_total['most_recent_eventdate'][0])
-
-    start_date_dt = datetime.strptime(min_date, "%Y-%m-%d")
-    end_date_dt = datetime.strptime(max_date, "%Y-%m-%d")
-    start_date_limited_dt = end_date_dt - timedelta(days=30)
-
-    get_start_date, set_start_date = mo.state(start_date_limited_dt)
-    get_end_date, set_end_date = mo.state(end_date_dt)
-
-    ##
-    ## Date Selection Boxes for single flowchart visualization
-    ##
-
-    start_date = mo.ui.date(
-        #label="Start Date",
-        value=get_start_date().strftime("%Y-%m-%d"),
-        on_change=lambda x: set_start_date(pd.to_datetime(x))
-    )
-
-    end_date = mo.ui.date(
-        #label="End Date",
-        value=get_end_date().strftime("%Y-%m-%d"),
-        on_change=lambda x: set_end_date(pd.to_datetime(x))
-    )
-
-    ##
-    ## Date Selection Boxes for A/B flowchart visualization
-    ##
-
-
-    start_date_fc_a = mo.ui.date(
-        #label="Start Date",
-        value=get_start_date().strftime("%Y-%m-%d"),
-        on_change=lambda x: set_start_date(pd.to_datetime(x))
-    )
-
-    end_date_fc_a = mo.ui.date(
-        #label="End Date",
-        value=get_end_date().strftime("%Y-%m-%d"),
-        on_change=lambda x: set_end_date(pd.to_datetime(x))
-    )
-
-    start_date_fc_b = mo.ui.date(
-        #label="Start Date",
-        value=get_start_date().strftime("%Y-%m-%d"),
-        on_change=lambda x: set_start_date(pd.to_datetime(x))
-    )
-
-    end_date_fc_b = mo.ui.date(
-        #label="End Date",
-        value=get_end_date().strftime("%Y-%m-%d"),
-        on_change=lambda x: set_end_date(pd.to_datetime(x))
-    )
-    return (
-        end_date,
-        end_date_fc_a,
-        end_date_fc_b,
-        start_date,
-        start_date_fc_a,
-        start_date_fc_b,
-    )
-
-
-@app.cell
 def _():
     return
 
@@ -914,8 +1018,14 @@ def _():
 
 
 @app.cell
-def _(ms_exclude_steps, ms_include_steps, ms_meta_search_1):
-    sql_parts_pt = filter_to_sql(ms_exclude_steps, ms_include_steps, ms_meta_search_1)
+def _(
+    ms_exclude_steps,
+    ms_include_steps,
+    ms_meta_search_1,
+    ms_meta_search_2,
+    ms_meta_search_3,
+):
+    sql_parts_pt = filter_to_sql(ms_exclude_steps, ms_include_steps, ms_meta_search_1, ms_meta_search_2, ms_meta_search_3)
     return (sql_parts_pt,)
 
 
@@ -938,8 +1048,14 @@ def _(
 
 
 @app.cell
-def _(ms_exclude_steps_fc_a, ms_include_steps_fc_a, ms_meta_search_1_fc_a):
-    sql_parts_a = filter_to_sql(ms_exclude_steps_fc_a, ms_include_steps_fc_a, ms_meta_search_1_fc_a)
+def _(
+    ms_exclude_steps_fc_a,
+    ms_include_steps_fc_a,
+    ms_meta_search_1_fc_a,
+    ms_meta_search_2_fc_a,
+    ms_meta_search_3_fc_a,
+):
+    sql_parts_a = filter_to_sql(ms_exclude_steps_fc_a, ms_include_steps_fc_a, ms_meta_search_1_fc_a, ms_meta_search_2_fc_a, ms_meta_search_3_fc_a)
     return (sql_parts_a,)
 
 
@@ -951,8 +1067,14 @@ def _(dropdown_projects, end_date_fc_a, sql_parts_a, start_date_fc_a):
 
 
 @app.cell
-def _(ms_exclude_steps_fc_b, ms_include_steps_fc_b, ms_meta_search_1_fc_b):
-    sql_parts_b = filter_to_sql(ms_exclude_steps_fc_b, ms_include_steps_fc_b, ms_meta_search_1_fc_b)
+def _(
+    ms_exclude_steps_fc_b,
+    ms_include_steps_fc_b,
+    ms_meta_search_1_fc_b,
+    ms_meta_search_2_fc_b,
+    ms_meta_search_3_fc_b,
+):
+    sql_parts_b = filter_to_sql(ms_exclude_steps_fc_b, ms_include_steps_fc_b, ms_meta_search_1_fc_b, ms_meta_search_2_fc_b, ms_meta_search_3_fc_b)
     return (sql_parts_b,)
 
 
@@ -1131,15 +1253,6 @@ def visual__step_filters(list_available_steps):
         ms_include_steps_fc_a,
         ms_include_steps_fc_b,
     )
-
-
-@app.cell
-def visual__search_meta1(list_journey_metas, meta_descriptions):
-
-    ms_meta_search_1 = mo.ui.multiselect.from_series(list_journey_metas["meta_1"], label=f"Select {meta_descriptions['meta_1'][0]}", full_width=True)
-    ms_meta_search_1_fc_a = mo.ui.multiselect.from_series(list_journey_metas["meta_1"], label=f"Select {meta_descriptions['meta_1'][0]}", full_width=True)
-    ms_meta_search_1_fc_b = mo.ui.multiselect.from_series(list_journey_metas["meta_1"], label=f"Select {meta_descriptions['meta_1'][0]}", full_width=True)
-    return ms_meta_search_1, ms_meta_search_1_fc_a, ms_meta_search_1_fc_b
 
 
 @app.cell
@@ -1443,7 +1556,6 @@ def visual__create_flowchart(
 
     def create_journeys_flowchart(data, metric, connection) -> dict:
 
-        print("Begin Creating Flowchsrt")
         if switch_flowchart_orientation.value:
             mermaid_content = "flowchart LR\n"
         else:

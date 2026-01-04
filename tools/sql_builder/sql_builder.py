@@ -2,11 +2,25 @@
 ## Helper function to create proper SQL statements based on various filter conditions ##
 ########################################################################################
 
-def filter_to_sql(ms_exclude_steps: str, ms_include_steps: str, ms_meta_search_1: str) -> dict:
+def filter_to_sql(ms_exclude_steps: str, ms_include_steps: str, ms_meta_search_1: str, ms_meta_search_2: str, ms_meta_search_3: str) -> dict:
 
   exclude_steps = str(ms_exclude_steps.value).replace('[','(').replace(']', ')')
   include_steps = str(ms_include_steps.value).replace('[','(').replace(']', ')')
-  meta_1_search = str(ms_meta_search_1.value).replace('[','(').replace(']', ')')
+  
+  if ms_meta_search_1 != '':
+    meta_1_search = str(ms_meta_search_1.value).replace('[','(').replace(']', ')')
+  else:
+    meta_1_search = '()'
+ 
+  if ms_meta_search_2 != '':
+    meta_2_search = str(ms_meta_search_2.value).replace('[','(').replace(']', ')')
+  else:
+    meta_2_search = '()'
+    
+  if ms_meta_search_3 != '':
+    meta_3_search = str(ms_meta_search_3.value).replace('[','(').replace(']', ')')
+  else:
+    meta_3_search = '()'
   
   if exclude_steps != '()':
       sql_where_exclude_steps = f"  STEP IN {exclude_steps} "
@@ -22,14 +36,24 @@ def filter_to_sql(ms_exclude_steps: str, ms_include_steps: str, ms_meta_search_1
       sql_where_meta_1_search = f"  AND META_1 IN {meta_1_search} "
   else:
       sql_where_meta_1_search = ''
+
+  if meta_2_search != '()':
+      sql_where_meta_2_search = f"  AND META_2 IN {meta_2_search} "
+  else:
+      sql_where_meta_2_search = ''
+
+  if meta_3_search != '()':
+      sql_where_meta_3_search = f"  AND META_3 IN {meta_3_search} "
+  else:
+      sql_where_meta_3_search = ''
   
   WHERE_INC = ''
   WHERE_EXC = ''
   
-  if sql_where_include_steps != '' or sql_where_meta_1_search != '':
+  if sql_where_include_steps != '' or sql_where_meta_1_search != '' or sql_where_meta_2_search != '' or sql_where_meta_3_search != '':
       WHERE_INC = 'WHERE'
   
-  if sql_where_exclude_steps != '' or sql_where_meta_1_search != '':
+  if sql_where_exclude_steps != '' or sql_where_meta_1_search != '' or sql_where_meta_2_search != '' or sql_where_meta_3_search != '':
       WHERE_EXC = 'WHERE'
 
 
@@ -37,6 +61,8 @@ def filter_to_sql(ms_exclude_steps: str, ms_include_steps: str, ms_meta_search_1
     "where_exclude_steps": sql_where_exclude_steps,
     "where_include_steps": sql_where_include_steps,
     "where_meta_1_search": sql_where_meta_1_search,
+    "where_meta_2_search": sql_where_meta_2_search,
+    "where_meta_3_search": sql_where_meta_3_search,
     "where_exc": WHERE_EXC,
     "where_inc": WHERE_INC,
   }
