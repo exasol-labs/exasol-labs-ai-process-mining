@@ -30,22 +30,22 @@ def filter_to_sql(ms_exclude_steps: str, ms_include_steps: str, ms_meta_search_1
   if include_steps != '()':
       sql_where_include_steps = f"  STEP IN {include_steps} "
   else:
-      sql_where_include_steps = ''
+      sql_where_include_steps = f"  STEP LIKE '%' "
   
   if meta_1_search != '()':
       sql_where_meta_1_search = f"  AND META_1 IN {meta_1_search} "
   else:
-      sql_where_meta_1_search = ''
+      sql_where_meta_1_search = f"  "
 
   if meta_2_search != '()':
       sql_where_meta_2_search = f"  AND META_2 IN {meta_2_search} "
   else:
-      sql_where_meta_2_search = ''
+      sql_where_meta_2_search = f"   "
 
   if meta_3_search != '()':
       sql_where_meta_3_search = f"  AND META_3 IN {meta_3_search} "
   else:
-      sql_where_meta_3_search = ''
+      sql_where_meta_3_search = f"   "
   
   WHERE_INC = ''
   WHERE_EXC = ''
@@ -86,7 +86,7 @@ def sql_filtered_statistics_1(env, project: str, start_date, end_date, sql_parts
         	{env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
         WHERE
         	PROJECT_ID = '{project}' AND
-            EVENT_TIME >= '{start_date}' AND EVENT_TIME <= '{end_date}' 	
+            EVENT_TIME >= '{start_date} 00:00:00' AND EVENT_TIME <= '{end_date} 23:59:59' 	
     ),
     
     
@@ -98,6 +98,8 @@ def sql_filtered_statistics_1(env, project: str, start_date, end_date, sql_parts
         {sql_parts['where_exc']}
             {sql_parts['where_exclude_steps']}
             {sql_parts['where_meta_1_search']}
+            {sql_parts['where_meta_2_search']}
+            {sql_parts['where_meta_3_search']}
     ),
     
     included_events AS (
@@ -108,6 +110,8 @@ def sql_filtered_statistics_1(env, project: str, start_date, end_date, sql_parts
         {sql_parts['where_inc']} 
             {sql_parts['where_include_steps']} 
             {sql_parts['where_meta_1_search']}
+            {sql_parts['where_meta_2_search']}
+            {sql_parts['where_meta_3_search']}
     ),
     
     filtered_journeys AS (
@@ -173,7 +177,10 @@ def sql_filtered_statistics_2(env, project: str, start_date, end_date, sql_parts
         	{env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
         WHERE
         	PROJECT_ID = '{project}' AND
-            EVENT_TIME >= '{start_date}' AND EVENT_TIME <= '{end_date}' 	
+            EVENT_TIME >= '{start_date} 00:00:00' AND EVENT_TIME <= '{end_date} 23:59:59' 	
+            {sql_parts['where_meta_1_search']}
+            {sql_parts['where_meta_2_search']}
+            {sql_parts['where_meta_3_search']}
     ),
     
     
@@ -182,9 +189,9 @@ def sql_filtered_statistics_2(env, project: str, start_date, end_date, sql_parts
             DISTINCT EVENT_ID
         FROM 
             TIMED_JOURNEYS
-        {sql_parts['where_exc']}
+            {sql_parts['where_exc']}
             {sql_parts['where_exclude_steps']}
-            {sql_parts['where_meta_1_search']}
+            
     ),
     
     included_events AS (
@@ -192,9 +199,9 @@ def sql_filtered_statistics_2(env, project: str, start_date, end_date, sql_parts
             DISTINCT EVENT_ID
         FROM 
             TIMED_JOURNEYS
-        {sql_parts['where_inc']} 
+            {sql_parts['where_inc']} 
             {sql_parts['where_include_steps']} 
-            {sql_parts['where_meta_1_search']}
+            
     ),
     
     filtered_journeys AS (

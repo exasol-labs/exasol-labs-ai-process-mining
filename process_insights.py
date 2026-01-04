@@ -433,12 +433,12 @@ def ui__filter_groups(
     metric_selection_a,
     metric_selection_b,
     metric_selection_pt,
-    ms_exclude_steps,
     ms_exclude_steps_fc_a,
     ms_exclude_steps_fc_b,
-    ms_include_steps,
+    ms_exclude_steps_pt,
     ms_include_steps_fc_a,
     ms_include_steps_fc_b,
+    ms_include_steps_pt,
     ms_meta_search_1,
     ms_meta_search_1_fc_a,
     ms_meta_search_1_fc_b,
@@ -461,8 +461,8 @@ def ui__filter_groups(
                     mo.hstack([start_date, mo.md("->"), end_date], gap=0.1, justify="start"),
                     mo.vstack([
                         metric_selection_pt,
-                        ms_include_steps, 
-                        ms_exclude_steps,
+                        ms_include_steps_pt, 
+                        ms_exclude_steps_pt,
                         ms_meta_search_1,
                         ms_meta_search_2,
                         ms_meta_search_3,
@@ -719,14 +719,14 @@ def set_menu(menu: str) -> str:
 
 
 @app.cell
-def _(mermaid_diagram, ms_exclude_steps, ms_include_steps):
+def _(mermaid_diagram, ms_exclude_steps_pt, ms_include_steps_pt):
     ##
     ## Tab Menu Items
     ##
 
     tab_content_process_tree_total = mo.hstack([mo.vstack([
                                      mo.md("<br/>"),
-                                     mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps.value}")], widths=[1,1]),
+                                     mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_pt.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_pt.value}")], widths=[1,1]),
                                      mo.md("<br/><br/>"),
                                      mo.mermaid(mermaid_diagram).style(width="150%", height="150%").center(),
                                    ])]),
@@ -740,26 +740,26 @@ def _(
     mermaid_diagram,
     mermaid_diagram_fc_a,
     mermaid_diagram_fc_b,
-    ms_exclude_steps,
     ms_exclude_steps_fc_a,
     ms_exclude_steps_fc_b,
-    ms_include_steps,
+    ms_exclude_steps_pt,
     ms_include_steps_fc_a,
     ms_include_steps_fc_b,
+    ms_include_steps_pt,
     settings,
     statistics_row_1,
     statistics_row_2,
 ):
     tab_pt = mo.hstack([mo.vstack([
                                   mo.md("<br/>"),
-                                  mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps.value}")], widths=[1,1]),
+                                  mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_pt.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_pt.value}")], widths=[1,1]),
                                   mo.md("<br/><br/>"),
                                   mo.mermaid(mermaid_diagram).style(width="150%", height="150%").center(),
                               ])])
 
     tab_ai = mo.vstack([
                                   mo.md("<br/>"),
-                                  mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps.value}")], widths=[1,1]),
+                                  mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_pt.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_pt.value}")], widths=[1,1]),
                                   mo.md("<br/><br/>"),
                                   mo.md(str(llm_result_single_flowchart)),                                  
                                 ])
@@ -787,7 +787,7 @@ def _(
     tab_gs = mo.vstack([mo.md("</br>"), 
                                               statistics_row_1, 
                                               statistics_row_2,
-                                              mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps.value}")], widths=[1,1], align="stretch"),
+                                              mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_pt.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_pt.value}")], widths=[1,1], align="stretch"),
                                              ])
     tab_se = mo.hstack([settings])
     return tab_ab, tab_ai, tab_gs, tab_ij, tab_pt, tab_se
@@ -915,8 +915,8 @@ def _(viewer):
 @app.cell
 def visual__tabs(
     individual_journey_flowchart,
-    ms_exclude_steps,
-    ms_include_steps,
+    ms_exclude_steps_pt,
+    ms_include_steps_pt,
     statistics_row_1,
     statistics_row_2,
     step_form,
@@ -935,7 +935,7 @@ def visual__tabs(
             "Selected Statistics": mo.vstack([mo.md("</br>"), 
                                               statistics_row_1, 
                                               statistics_row_2,
-                                              mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps.value}")], widths=[1,1], align="stretch"),
+                                              mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_pt.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_pt.value}")], widths=[1,1], align="stretch"),
                                              ]),
             "Settings": mo.vstack([step_form]),
         },
@@ -1019,13 +1019,13 @@ def _():
 
 @app.cell
 def _(
-    ms_exclude_steps,
-    ms_include_steps,
+    ms_exclude_steps_pt,
+    ms_include_steps_pt,
     ms_meta_search_1,
     ms_meta_search_2,
     ms_meta_search_3,
 ):
-    sql_parts_pt = filter_to_sql(ms_exclude_steps, ms_include_steps, ms_meta_search_1, ms_meta_search_2, ms_meta_search_3)
+    sql_parts_pt = filter_to_sql(ms_exclude_steps_pt, ms_include_steps_pt, ms_meta_search_1, ms_meta_search_2, ms_meta_search_3)
     return (sql_parts_pt,)
 
 
@@ -1129,6 +1129,12 @@ def sql__statistics_total(dropdown_projects):
 
 
 @app.cell
+def _(sql_filtered_statistics_pt_1):
+    print(sql_filtered_statistics_pt_1)
+    return
+
+
+@app.cell
 def sql__filtered_statistics_pt_1(sql_filtered_statistics_pt_1):
     dataframe_statistics_filtered_pt_1 = mo.sql(
         f"""
@@ -1217,26 +1223,14 @@ def _():
 def _(get_state_inc, handle_inc, options_list):
     # Create the multiselect components
 
-    ms_include_steps = mo.ui.multiselect(
-        options=options_list,
-        label="Include Steps",
-        value=get_state_inc(),
-        full_width=True,
-        on_change=handle_inc
-    )
-    return (ms_include_steps,)
+    ms_include_steps_pt = mo.ui.multiselect(options=options_list, label="Include Steps", value=get_state_inc(), full_width=True, on_change=handle_inc)
+    return (ms_include_steps_pt,)
 
 
 @app.cell
 def _(get_state_exc, handle_exc, options_list):
-    ms_exclude_steps = mo.ui.multiselect(
-        options=options_list,
-        label="Exclude Steps",
-        value=get_state_exc(),
-        full_width=True,
-        on_change=handle_exc
-    )
-    return (ms_exclude_steps,)
+    ms_exclude_steps_pt = mo.ui.multiselect( options=options_list, label="Exclude Steps", value=get_state_exc(), full_width=True, on_change=handle_exc) 
+    return (ms_exclude_steps_pt,)
 
 
 @app.cell
@@ -1399,11 +1393,11 @@ def compile__flowchart_structure(dropdown_projects, end_date, start_date):
 def sql__build_flowchart(
     build_flowchart_structure,
     dropdown_projects,
-    ms_exclude_steps,
-    ms_include_steps,
+    ms_exclude_steps_pt,
+    ms_include_steps_pt,
     ms_meta_search_1,
 ):
-    sql_build_flowchart = build_flowchart_structure(project={dropdown_projects.value}, exc=ms_exclude_steps.value, inc=ms_include_steps.value, meta_1=ms_meta_search_1.value)
+    sql_build_flowchart = build_flowchart_structure(project={dropdown_projects.value}, exc=ms_exclude_steps_pt.value, inc=ms_include_steps_pt.value, meta_1=ms_meta_search_1.value)
 
     if DEBUG:
         print(sql_build_flowchart)
