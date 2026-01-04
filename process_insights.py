@@ -27,7 +27,7 @@ with app.setup:
 
     from tools.llm.system_prompt import save_system_prompt
     from tools.sql_builder.sql_builder import filter_to_sql
-    from tools.sql_builder.sql_builder import sql_filtered_statistics_1, sql_filtered_statistics_2
+    from tools.sql_builder.sql_builder import sql_filtered_statistics_1, sql_filtered_statistics_2, build_flowchart_structure
     from tools.statistics.statistic_widgets import filtered_statistics_widgets, total_statistics_widgets
     from tools.wrappers.text_wrappers import wrap_text, ResultText
 
@@ -410,7 +410,7 @@ def sql__unique_steps(dropdown_projects):
 @app.cell
 def _():
     switch_visualization_type = mo.ui.switch(label='Flowchart / Sankey Diagram')
-    return (switch_visualization_type,)
+    return
 
 
 @app.cell
@@ -452,11 +452,10 @@ def ui__filter_groups(
     start_date_fc_a,
     start_date_fc_b,
     switch_flowchart_orientation,
-    switch_visualization_type,
 ):
 
     filter_process_tree = mo.vstack([
-                    mo.hstack([switch_visualization_type]),
+                    #mo.hstack([switch_visualization_type]),
                     mo.hstack([switch_flowchart_orientation]),
                     mo.hstack([start_date, mo.md("->"), end_date], gap=0.1, justify="start"),
                     mo.vstack([
@@ -913,58 +912,11 @@ def _(viewer):
 
 
 @app.cell
-def visual__tabs(
-    individual_journey_flowchart,
-    ms_exclude_steps_pt,
-    ms_include_steps_pt,
-    statistics_row_1,
-    statistics_row_2,
-    step_form,
-    tab_ab,
-    tab_ai,
-    tab_pt,
-):
-
-
-    tabs = mo.ui.tabs(
-        {
-            "Process - Tree": tab_pt,
-            "Overview by AI": tab_ai,
-            "A/B Comparison": tab_ab,
-            "Individual Journey Inspection":  mo.vstack([mo.md("</br>"), mo.mermaid(individual_journey_flowchart).style(width="100%").center()]),
-            "Selected Statistics": mo.vstack([mo.md("</br>"), 
-                                              statistics_row_1, 
-                                              statistics_row_2,
-                                              mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_pt.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_pt.value}")], widths=[1,1], align="stretch"),
-                                             ]),
-            "Settings": mo.vstack([step_form]),
-        },
-        value = get_tab(), #"Process - Tree",
-        on_change = set_menu, 
-        label = "Select an option"
-    )
-
-    mo.md("<br/><br/>")
-    return (tabs,)
-
-
-@app.cell
 def _():
-    return
-
-
-@app.cell
-def _():
-    # llm_result_single_flowchart
-    return
-
-
-@app.cell
-def _(tabs):
-    menu_selected = set_menu(tabs.value)
+    #menu_selected = set_menu(tabs.value)
     #set_tab(tabs.value)
-    print("Result: ", menu_selected)
-    print("tabs-value: ", tabs.value)
+    #print("Result: ", menu_selected)
+    #print("tabs-value: ", tabs.value)
     return
 
 
@@ -1129,12 +1081,6 @@ def sql__statistics_total(dropdown_projects):
 
 
 @app.cell
-def _(sql_filtered_statistics_pt_1):
-    print(sql_filtered_statistics_pt_1)
-    return
-
-
-@app.cell
 def sql__filtered_statistics_pt_1(sql_filtered_statistics_pt_1):
     dataframe_statistics_filtered_pt_1 = mo.sql(
         f"""
@@ -1250,177 +1196,28 @@ def visual__step_filters(list_available_steps):
 
 
 @app.cell
-def compile__flowchart_structure(dropdown_projects, end_date, start_date):
-    def build_flowchart_structure(project: str, exc: str, inc: str, meta_1: str):
+def sql__build_flowchart():
+    #sql_build_flowchart = build_flowchart_structure(project={dropdown_projects.value}, exc=ms_exclude_steps_pt.value, inc=ms_include_steps_pt.value, meta_1=ms_meta_search_1.value)
 
-        _exclude_steps = str(exc).replace('[','(').replace(']', ')')
-        _include_steps = str(inc).replace('[','(').replace(']', ')')
-        _meta_1_search = str(meta_1).replace('[','(').replace(']', ')')
-
-        if _exclude_steps != '()':
-            sql_where_exclude_steps = f" AND STEP IN {_exclude_steps} "
-        else:
-            sql_where_exclude_steps = "AND STEP IN ('START')"
-
-        if _include_steps != '()':
-            sql_where_include_steps = f" AND STEP IN {_include_steps} "
-        else:
-            sql_where_include_steps = ''
-
-        if _meta_1_search != '()':
-            sql_where_meta_1_search = f" AND META_1 IN {_meta_1_search} "
-        else:
-            sql_where_meta_1_search = ''
-
-
-        template_time = f"""
-            TIMED_JOURNEYS AS (
-                SELECT
-                    *
-                FROM
-                    {env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
-                WHERE
-                    PROJECT_ID = '{dropdown_projects.value}' AND
-                    EVENT_TIME >= '{start_date.value} 00:00:00' AND EVENT_TIME <= '{end_date.value} 23:59:59'
-
-            ),
-
-
-        """
-
-
-        template_exclude_1 = f"""
-            EXC_EVENTS AS (
-                SELECT
-                    TO_CHAR(CAST(EVENT_TIME AS DATE), 'YYYY-MM-DD') AS DATUM,
-                    EVENT_ID
-                FROM
-                    TIMED_JOURNEYS
-                WHERE
-                    PROJECT_ID = '{dropdown_projects.value}'
-
-                    {sql_where_exclude_steps}
-                    {sql_where_meta_1_search}
-                GROUP BY 
-                    local.DATUM, EVENT_ID
-                ORDER BY
-                    local.DATUM
-            ),
-        """
-        template_exclude_2 = f"""
-
-        """
-
-        template_include_1 = f"""
-            INC_EVENTS AS (
-                SELECT
-                    TO_CHAR(CAST(EVENT_TIME AS DATE), 'YYYY-MM-DD') AS DATUM,
-                    EVENT_ID
-                FROM
-                    TIMED_JOURNEYS
-                WHERE
-                    PROJECT_ID = '{dropdown_projects.value}'
-
-                    {sql_where_include_steps}
-                    {sql_where_meta_1_search}
-                GROUP BY 
-                    local.DATUM, EVENT_ID
-                ORDER BY
-                    local.DATUM
-                ),   
-        """
-
-
-        _sql = f"""
-            WITH
-                {template_time}
-                {template_exclude_1}
-                {template_include_1}
-
-                FILTERED_JOURNEYS AS (
-                    SELECT 
-                        J.*
-                    FROM 
-                        TIMED_JOURNEYS J LEFT JOIN INC_EVENTS I ON j.EVENT_ID = I.EVENT_ID
-                        LEFT JOIN EXC_EVENTS R ON  J.EVENT_ID   = R.EVENT_ID
-                    WHERE 
-                        R.EVENT_ID IS NULL
-                        AND (
-                            I.EVENT_ID IS NOT NULL                    -- match event_id in VALID_EVENT_IDS
-                            OR NOT EXISTS (SELECT 1 FROM INC_EVENTS)  -- table is empty → keep all
-                          )
-                ),
-
-                PROCESS_CHAINS AS (
-                    SELECT  
-                        J.EVENT_ID,
-                        J.STEP AS FROM_STEP,
-                        LEAD(J.STEP) OVER (PARTITION BY J.EVENT_ID ORDER BY J.EVENT_TIME) AS TO_STEP,
-                        J.EVENT_TIME AS FROM_TIME,
-                        LEAD(J.EVENT_TIME) OVER (PARTITION BY J.EVENT_ID ORDER BY J.EVENT_TIME) AS TO_TIME,
-                        TO_CHAR(CAST(local.FROM_TIME AS DATE), 'YYYY-MM-DD') AS DATUM,
-                        SECONDS_BETWEEN(local.TO_TIME, local.FROM_TIME) AS DURATION_SECONDS
-                    FROM 
-                        FILTERED_JOURNEYS J
-                )
-
-                SELECT
-                    FROM_STEP,
-                    TO_STEP,
-                    COUNT(DISTINCT EVENT_ID),
-                    AVG(DURATION_SECONDS), 
-                    MIN(DURATION_SECONDS),
-                    MAX(DURATION_SECONDS),
-                    MEDIAN(DURATION_SECONDS),
-                    STDDEV(DURATION_SECONDS)
-                FROM 
-                    PROCESS_CHAINS
-
-                GROUP BY 
-                    FROM_STEP, TO_STEP
-                HAVING 
-                    FROM_STEP <> TO_STEP
-                ORDER BY 
-                    FROM_STEP
-
-        """
-
-        return _sql
-    return (build_flowchart_structure,)
+    #if DEBUG:
+    #    print(sql_build_flowchart)
+    return
 
 
 @app.cell
-def sql__build_flowchart(
-    build_flowchart_structure,
-    dropdown_projects,
-    ms_exclude_steps_pt,
-    ms_include_steps_pt,
-    ms_meta_search_1,
-):
-    sql_build_flowchart = build_flowchart_structure(project={dropdown_projects.value}, exc=ms_exclude_steps_pt.value, inc=ms_include_steps_pt.value, meta_1=ms_meta_search_1.value)
-
-    if DEBUG:
-        print(sql_build_flowchart)
+def _(dropdown_projects, end_date, sql_parts_pt, start_date):
+    sql_build_flowchart = build_flowchart_structure(env=env, project=dropdown_projects.value, start_date=start_date.value, end_date=end_date.value, sql_parts=sql_parts_pt)
     return (sql_build_flowchart,)
 
 
 @app.cell
-def _(
-    build_flowchart_structure,
-    dropdown_projects,
-    ms_exclude_steps_fc_a,
-    ms_exclude_steps_fc_b,
-    ms_include_steps_fc_a,
-    ms_include_steps_fc_b,
-    ms_meta_search_1_fc_a,
-    ms_meta_search_1_fc_b,
-):
+def _(dropdown_projects, end_date, sql_parts_a, sql_parts_b, start_date):
     ##
     ## A/B Comaprisons
     ##
 
-    sql_build_flowchart_fc_a = build_flowchart_structure(project={dropdown_projects.value}, exc=ms_exclude_steps_fc_a.value, inc=ms_include_steps_fc_a.value, meta_1=ms_meta_search_1_fc_a.value)
-    sql_build_flowchart_fc_b = build_flowchart_structure(project={dropdown_projects.value}, exc=ms_exclude_steps_fc_b.value, inc=ms_include_steps_fc_b.value, meta_1=ms_meta_search_1_fc_b.value)
+    sql_build_flowchart_fc_a = build_flowchart_structure(env=env, project=dropdown_projects.value, start_date=start_date.value, end_date=end_date.value, sql_parts=sql_parts_a)
+    sql_build_flowchart_fc_b = build_flowchart_structure(env=env, project=dropdown_projects.value, start_date=start_date.value, end_date=end_date.value, sql_parts=sql_parts_b)
     return sql_build_flowchart_fc_a, sql_build_flowchart_fc_b
 
 
@@ -1550,11 +1347,13 @@ def visual__create_flowchart(
 
     def create_journeys_flowchart(data, metric, connection) -> dict:
 
+        mermaid_content = ''
+    
         if switch_flowchart_orientation.value:
             mermaid_content = "flowchart LR\n"
         else:
             mermaid_content = "flowchart TD\n"
-
+    
         metric = metric[0]
 
         # Track all nodes and their connections
@@ -1563,7 +1362,6 @@ def visual__create_flowchart(
         visited_nodes = set()
         edges = []
 
-        print(data)
 
         for start, end, sum_transitions, avg_time, min_time, max_time, median_time, stddev_time in data.iter_rows():
             nodes.add(start)
@@ -1576,10 +1374,12 @@ def visual__create_flowchart(
 
         if DEBUG:
             print(visited_nodes)
+            print('')
 
         _subgraphs_list = get_belongs_to(visited_nodes, connection)
 
         mermaid_content += _subgraphs_list + "\n"
+        print(mermaid_content)
 
         sankey_content = "\n \n sankey \n \n"
 
@@ -1657,6 +1457,18 @@ def visual__create_flowchart(
         mermaid_diagram,
         sankey_diagram,
     )
+
+
+@app.cell
+def _(sankey_diagram):
+    x = mo.mermaid(sankey_diagram)
+    return (x,)
+
+
+@app.cell
+def _(x):
+    x
+    return
 
 
 @app.cell
@@ -2296,7 +2108,7 @@ def _():
                     "shape": mo.ui.dropdown(options=["hex", "odd", "rounded", "stadium"], value='rounded')
         }
     )
-    return (step_form,)
+    return
 
 
 @app.cell

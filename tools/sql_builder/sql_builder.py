@@ -68,12 +68,11 @@ def filter_to_sql(ms_exclude_steps: str, ms_include_steps: str, ms_meta_search_1
   }
 
   return rtn
+  
 
-
-
-#############################
-## SQL Filtered Statistics ##
-#############################
+#################################
+## SQL Filtered Statistics - 1 ##
+#################################
 
 def sql_filtered_statistics_1(env, project: str, start_date, end_date, sql_parts) -> str:
 
@@ -87,6 +86,9 @@ def sql_filtered_statistics_1(env, project: str, start_date, end_date, sql_parts
         WHERE
         	PROJECT_ID = '{project}' AND
             EVENT_TIME >= '{start_date} 00:00:00' AND EVENT_TIME <= '{end_date} 23:59:59' 	
+            {sql_parts['where_meta_1_search']}
+            {sql_parts['where_meta_2_search']}
+            {sql_parts['where_meta_3_search']}
     ),
     
     
@@ -95,11 +97,8 @@ def sql_filtered_statistics_1(env, project: str, start_date, end_date, sql_parts
             DISTINCT EVENT_ID
         FROM 
             TIMED_JOURNEYS
-        {sql_parts['where_exc']}
-            {sql_parts['where_exclude_steps']}
-            {sql_parts['where_meta_1_search']}
-            {sql_parts['where_meta_2_search']}
-            {sql_parts['where_meta_3_search']}
+            {sql_parts['where_exc']}
+            {sql_parts['where_exclude_steps']}        
     ),
     
     included_events AS (
@@ -107,11 +106,8 @@ def sql_filtered_statistics_1(env, project: str, start_date, end_date, sql_parts
             DISTINCT EVENT_ID
         FROM 
             TIMED_JOURNEYS
-        {sql_parts['where_inc']} 
+            {sql_parts['where_inc']} 
             {sql_parts['where_include_steps']} 
-            {sql_parts['where_meta_1_search']}
-            {sql_parts['where_meta_2_search']}
-            {sql_parts['where_meta_3_search']}
     ),
     
     filtered_journeys AS (
@@ -164,7 +160,9 @@ def sql_filtered_statistics_1(env, project: str, start_date, end_date, sql_parts
   return sql
 
 
-
+#################################
+## SQL Filtered Statistics - 2 ##
+#################################
 
 def sql_filtered_statistics_2(env, project: str, start_date, end_date, sql_parts) -> str:
 
@@ -225,3 +223,132 @@ def sql_filtered_statistics_2(env, project: str, start_date, end_date, sql_parts
   """
 
   return sql
+
+
+#####################################################
+## Build the "Journey Table" for the Process Graph ##
+#####################################################
+
+def build_flowchart_structure(env, project, start_date, end_date, sql_parts):
+
+
+    template_time = f"""
+        TIMED_JOURNEYS AS (
+            SELECT
+                *
+            FROM
+                {env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
+            WHERE
+                PROJECT_ID = '{project}' AND
+                EVENT_TIME >= '{start_date} 00:00:00' AND EVENT_TIME <= '{end_date} 23:59:59'
+                {sql_parts['where_meta_1_search']}
+                {sql_parts['where_meta_2_search']}
+                {sql_parts['where_meta_3_search']}
+        ),
+
+
+    """
+
+
+    template_exclude_1 = f"""
+        EXC_EVENTS AS (
+            SELECT
+                TO_CHAR(CAST(EVENT_TIME AS DATE), 'YYYY-MM-DD') AS DATUM,
+                EVENT_ID
+            FROM
+                TIMED_JOURNEYS
+            WHERE
+                {sql_parts['where_exclude_steps']}
+
+            GROUP BY 
+                local.DATUM, EVENT_ID
+            ORDER BY
+                local.DATUM
+        ),
+    """
+    template_exclude_2 = f"""
+
+    """
+
+    template_include_1 = f"""
+        INC_EVENTS AS (
+            SELECT
+                TO_CHAR(CAST(EVENT_TIME AS DATE), 'YYYY-MM-DD') AS DATUM,
+                EVENT_ID
+            FROM
+                TIMED_JOURNEYS
+            WHERE
+                {sql_parts['where_include_steps']}
+
+            GROUP BY 
+                local.DATUM, EVENT_ID
+            ORDER BY
+                local.DATUM
+            ),   
+    """
+
+
+    _sql = f"""
+        WITH
+            {template_time}
+            {template_exclude_1}
+            {template_include_1}
+
+            FILTERED_JOURNEYS AS (
+                SELECT 
+                    J.*
+                FROM 
+                    TIMED_JOURNEYS J LEFT JOIN INC_EVENTS I ON j.EVENT_ID = I.EVENT_ID
+                    LEFT JOIN EXC_EVENTS R ON  J.EVENT_ID   = R.EVENT_ID
+                WHERE 
+                    R.EVENT_ID IS NULL
+                    AND (
+                        I.EVENT_ID IS NOT NULL                    -- match event_id in VALID_EVENT_IDS
+                        OR NOT EXISTS (SELECT 1 FROM INC_EVENTS)  -- table is empty → keep all
+                      )
+            ),
+
+            PROCESS_CHAINS AS (
+                SELECT  
+                    J.EVENT_ID,
+                    J.STEP AS FROM_STEP,
+                    LEAD(J.STEP) OVER (PARTITION BY J.EVENT_ID ORDER BY J.EVENT_TIME) AS TO_STEP,
+                    J.EVENT_TIME AS FROM_TIME,
+                    LEAD(J.EVENT_TIME) OVER (PARTITION BY J.EVENT_ID ORDER BY J.EVENT_TIME) AS TO_TIME,
+                    TO_CHAR(CAST(local.FROM_TIME AS DATE), 'YYYY-MM-DD') AS DATUM,
+                    SECONDS_BETWEEN(local.TO_TIME, local.FROM_TIME) AS DURATION_SECONDS
+                FROM 
+                    FILTERED_JOURNEYS J
+            )
+
+            SELECT
+                FROM_STEP,
+                TO_STEP,
+                COUNT(DISTINCT EVENT_ID),
+                AVG(DURATION_SECONDS), 
+                MIN(DURATION_SECONDS),
+                MAX(DURATION_SECONDS),
+                MEDIAN(DURATION_SECONDS),
+                STDDEV(DURATION_SECONDS)
+            FROM 
+                PROCESS_CHAINS
+
+            GROUP BY 
+                FROM_STEP, TO_STEP
+            HAVING 
+                FROM_STEP <> TO_STEP
+            ORDER BY 
+                FROM_STEP
+
+    """
+
+    return _sql
+
+
+
+
+
+
+
+
+  
