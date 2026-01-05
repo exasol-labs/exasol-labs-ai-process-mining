@@ -25,6 +25,10 @@ with app.setup:
     from dotenv import load_dotenv, dotenv_values
     from sqlalchemy import create_engine, sql, text
 
+
+    from tools.inputs.filters import handle_inc
+    from tools.inputs.filters import handle_exc
+    from tools.inputs.filters import get_state_inc, set_state_inc, get_state_exc, set_state_exc
     from tools.llm.system_prompt import save_system_prompt
     from tools.sql_builder.sql_builder import filter_to_sql
     from tools.sql_builder.sql_builder import sql_filtered_statistics_1, sql_filtered_statistics_2, build_flowchart_structure
@@ -131,21 +135,6 @@ def filter__date_ranges(statistics_total):
     get_start_date, set_start_date = mo.state(start_date_limited_dt)
     get_end_date, set_end_date = mo.state(end_date_dt)
 
-    ##
-    ## Date Selection Boxes for single flowchart visualization
-    ##
-
-    start_date = mo.ui.date(
-        #label="Start Date",
-        value=get_start_date().strftime("%Y-%m-%d"),
-        on_change=lambda x: set_start_date(pd.to_datetime(x))
-    )
-
-    end_date = mo.ui.date(
-        #label="End Date",
-        value=get_end_date().strftime("%Y-%m-%d"),
-        on_change=lambda x: set_end_date(pd.to_datetime(x))
-    )
 
     ##
     ## Date Selection Boxes for A/B flowchart visualization
@@ -175,26 +164,22 @@ def filter__date_ranges(statistics_total):
         value=get_end_date().strftime("%Y-%m-%d"),
         on_change=lambda x: set_end_date(pd.to_datetime(x))
     )
-    return (
-        end_date,
-        end_date_fc_a,
-        end_date_fc_b,
-        start_date,
-        start_date_fc_a,
-        start_date_fc_b,
-    )
+    return end_date_fc_a, end_date_fc_b, start_date_fc_a, start_date_fc_b
 
 
 @app.cell
 def filter__metric_selection():
-    _metrics_pt = ["Number of Journeys", "Average Transition Time", "Minimum Transition Time", "Median Transition Time", "StdDev Transition Time", "Maximum Transition Time"]
+    ###################################
+    ## Metrics for the Process Graph ##
+    ###################################
+
+
     _metrics_a  = ["Number of Journeys", "Average Transition Time", "Minimum Transition Time", "Median Transition Time", "StdDev Transition Time", "Maximum Transition Time"]
     _metrics_b  = ["Number of Journeys", "Average Transition Time", "Minimum Transition Time", "Median Transition Time", "StdDev Transition Time", "Maximum Transition Time"]
 
-    metric_selection_pt = mo.ui.multiselect(options=_metrics_pt, label='Metric ', value=['Number of Journeys'], full_width=True, max_selections=1)
     metric_selection_a  = mo.ui.multiselect(options=_metrics_a,  label='Metric ', value=['Number of Journeys'], full_width=True, max_selections=1)
     metric_selection_b  = mo.ui.multiselect(options=_metrics_b,  label='Metric ', value=['Number of Journeys'], full_width=True, max_selections=1)
-    return metric_selection_a, metric_selection_b, metric_selection_pt
+    return metric_selection_a, metric_selection_b
 
 
 @app.cell
@@ -205,39 +190,30 @@ def filter__meta_search(
     meta_descriptions,
 ):
     if meta_descriptions['meta_1'][0]:
-        ms_meta_search_1 = mo.ui.multiselect.from_series(list_journey_metas_1["meta_1"], label=f"Select {meta_descriptions['meta_1'][0]}", full_width=True)
         ms_meta_search_1_fc_a = mo.ui.multiselect.from_series(list_journey_metas_1["meta_1"], label=f"Select {meta_descriptions['meta_1'][0]}", full_width=True)
         ms_meta_search_1_fc_b = mo.ui.multiselect.from_series(list_journey_metas_1["meta_1"], label=f"Select {meta_descriptions['meta_1'][0]}", full_width=True)
     else:
-        ms_meta_search_1 = ''
         ms_meta_search_1_fc_a = ''
         ms_meta_search_1_fc_b = ''
 
     if meta_descriptions['meta_2'][0]:
-        ms_meta_search_2 = mo.ui.multiselect.from_series(list_journey_metas_2["meta_2"], label=f"Select {meta_descriptions['meta_2'][0]}", full_width=True)
         ms_meta_search_2_fc_a = mo.ui.multiselect.from_series(list_journey_metas_2["meta_2"], label=f"Select {meta_descriptions['meta_2'][0]}", full_width=True)
         ms_meta_search_2_fc_b = mo.ui.multiselect.from_series(list_journey_metas_2["meta_2"], label=f"Select {meta_descriptions['meta_2'][0]}", full_width=True)
     else:
-        ms_meta_search_2 = ''
         ms_meta_search_2_fc_a = ''    
         ms_meta_search_2_fc_b = ''
 
     if meta_descriptions['meta_3'][0]:
-        ms_meta_search_3 = mo.ui.multiselect.from_series(list_journey_metas_3["meta_3"], label=f"Select {meta_descriptions['meta_3'][0]}", full_width=True)
         ms_meta_search_3_fc_a = mo.ui.multiselect.from_series(list_journey_metas_3["meta_3"], label=f"Select {meta_descriptions['meta_3'][0]}", full_width=True)
         ms_meta_search_3_fc_b = mo.ui.multiselect.from_series(list_journey_metas_3["meta_3"], label=f"Select {meta_descriptions['meta_3'][0]}", full_width=True)
     else:
-        ms_meta_search_3 = ''
         ms_meta_search_3_fc_a = ''
         ms_meta_search_3_fc_b = ''
     return (
-        ms_meta_search_1,
         ms_meta_search_1_fc_a,
         ms_meta_search_1_fc_b,
-        ms_meta_search_2,
         ms_meta_search_2_fc_a,
         ms_meta_search_2_fc_b,
-        ms_meta_search_3,
         ms_meta_search_3_fc_a,
         ms_meta_search_3_fc_b,
     )
@@ -409,13 +385,13 @@ def sql__unique_steps(dropdown_projects):
 
 @app.cell
 def _():
-    switch_visualization_type = mo.ui.switch(label='Flowchart / Sankey Diagram')
+    #switch_visualization_type = mo.ui.switch(label='Flowchart / Sankey Diagram')
     return
 
 
 @app.cell
-def switch__flowchart_orienttion():
-    switch_flowchart_orientation = mo.ui.switch(label="Orientation Flowchart: Top Down / Left-Right")
+def switch__flowchart_orientation():
+    switch_flowchart_orientation = mo.ui.switch(label="Orientation Flowchart: Top Down <-> Left-Right")
     return (switch_flowchart_orientation,)
 
 
@@ -427,51 +403,27 @@ def _():
 
 @app.cell
 def ui__filter_groups(
-    end_date,
     end_date_fc_a,
     end_date_fc_b,
     metric_selection_a,
     metric_selection_b,
-    metric_selection_pt,
     ms_exclude_steps_fc_a,
     ms_exclude_steps_fc_b,
-    ms_exclude_steps_pt,
     ms_include_steps_fc_a,
     ms_include_steps_fc_b,
-    ms_include_steps_pt,
-    ms_meta_search_1,
     ms_meta_search_1_fc_a,
     ms_meta_search_1_fc_b,
-    ms_meta_search_2,
     ms_meta_search_2_fc_a,
     ms_meta_search_2_fc_b,
-    ms_meta_search_3,
     ms_meta_search_3_fc_a,
     ms_meta_search_3_fc_b,
-    start_date,
     start_date_fc_a,
     start_date_fc_b,
     switch_flowchart_orientation,
 ):
 
-    filter_process_tree = mo.vstack([
-                    #mo.hstack([switch_visualization_type]),
-                    mo.hstack([switch_flowchart_orientation]),
-                    mo.hstack([start_date, mo.md("->"), end_date], gap=0.1, justify="start"),
-                    mo.vstack([
-                        metric_selection_pt,
-                        ms_include_steps_pt, 
-                        ms_exclude_steps_pt,
-                        ms_meta_search_1,
-                        ms_meta_search_2,
-                        ms_meta_search_3,
-                    ]),
-                ],
-                gap=2,
-                heights=[0,0,0,0],
-                )
-
     individual_journey_input_id = mo.ui.text(placeholder='Search for unique ID...', label='Journey-ID', full_width=True)
+
     filter_individual_journey = mo.vstack([
                                     mo.hstack([switch_flowchart_orientation]),
                                     mo.hstack([individual_journey_input_id], widths=[1])
@@ -483,6 +435,7 @@ def ui__filter_groups(
     filter_process_tree_a = mo.vstack([
 
                     mo.hstack([mo.md("### Filtergroup -A-")]),
+                    mo.hstack([switch_flowchart_orientation]),
                     mo.hstack([start_date_fc_a, mo.md("->"), end_date_fc_a], gap=0.1, justify="start"),
                     mo.vstack([
                         metric_selection_a,
@@ -494,11 +447,12 @@ def ui__filter_groups(
                     ]),
                 ],
                 gap=2,
-                #heights=[0,1],
+                 heights=[0,0,0,0,0,0],
                 )
 
     filter_process_tree_b = mo.vstack([
                     mo.hstack([mo.md("### Filtergroup -B-")]),
+                    mo.hstack([switch_flowchart_orientation]),
                     mo.hstack([start_date_fc_b, mo.md("->"), end_date_fc_b], gap=0.1, justify="start"),
                     mo.vstack([
                         metric_selection_b,
@@ -510,7 +464,7 @@ def ui__filter_groups(
                     ]),
                 ],
                 gap=2,
-                heights=[0,0,0],
+                heights=[0,0,0,0,0,0],
                 )
 
     filter_ab = mo.vstack([filter_process_tree_a, filter_process_tree_b], gap=2, heights=[0,1])
@@ -534,7 +488,8 @@ def ui__filter_groups(
         filter_ab,
         filter_group_ai,
         filter_individual_journey,
-        filter_process_tree,
+        filter_process_tree_a,
+        filter_process_tree_b,
         filter_se,
         individual_journey_input_id,
         slider_temperature_llm,
@@ -580,18 +535,6 @@ def _(statistics_num_steps, statistics_total):
 
 @app.cell
 def _(
-    dataframe_statistics_filtered_pt_1,
-    dataframe_statistics_filtered_pt_2,
-    end_date,
-    start_date,
-):
-    filtered_statistics_pt_1 = filtered_statistics_widgets(dataframe_statistics_filtered_pt_1, dataframe_statistics_filtered_pt_2, start_date.value, end_date.value)['filtered_statistics_1']
-    filtered_statistics_pt_2 = filtered_statistics_widgets(dataframe_statistics_filtered_pt_1, dataframe_statistics_filtered_pt_2, start_date.value, end_date.value)['filtered_statistics_2']
-    return filtered_statistics_pt_1, filtered_statistics_pt_2
-
-
-@app.cell
-def _(
     dataframe_statistics_filtered_a_1,
     dataframe_statistics_filtered_a_2,
     end_date_fc_a,
@@ -616,8 +559,6 @@ def _(
 
 @app.cell
 def _(
-    filtered_statistics_pt_1,
-    filtered_statistics_pt_2,
     filtered_statistics_widgets_a_1,
     filtered_statistics_widgets_a_2,
     filtered_statistics_widgets_b_1,
@@ -633,17 +574,25 @@ def _(
             multiple = True
         )
 
-    statistics_pt = mo.accordion({
+
+    statistics__a = mo.accordion({
             '### Statistics for all Processes': mo.vstack([ total_statistics_1, total_statistics_2 ]),
-            '### Statistics for Filter-Settings': mo.vstack([ filtered_statistics_pt_1, filtered_statistics_pt_2 ]),
+            '### Statistics for Filter-Settings - Process-Tree (A)': mo.vstack([ filtered_statistics_widgets_a_1, filtered_statistics_widgets_a_2 ]),
+            },
+            multiple = True
+        )
+
+    statistics__b = mo.accordion({
+            '### Statistics for all Processes': mo.vstack([ total_statistics_1, total_statistics_2 ]),
+            '### Statistics for Filter-Settings - Process-Tree (B)': mo.vstack([ filtered_statistics_widgets_b_1, filtered_statistics_widgets_b_2 ]),
             },
             multiple = True
         )
 
     statistics_ab = mo.accordion({
             '### Statistics for all Processes': mo.vstack([ total_statistics_1, total_statistics_2 ]),
-            '### Statistics for Filter-Settings - Process-Tree A': mo.vstack([ filtered_statistics_widgets_a_1, filtered_statistics_widgets_a_2 ]),
-            '### Statistics for Filter-Settings - Process-Tree B': mo.vstack([ filtered_statistics_widgets_b_1, filtered_statistics_widgets_b_2 ]),
+            '### Statistics for Filter-Settings - Process-Tree (A)': mo.vstack([ filtered_statistics_widgets_a_1, filtered_statistics_widgets_a_2 ]),
+            '### Statistics for Filter-Settings - Process-Tree (B)': mo.vstack([ filtered_statistics_widgets_b_1, filtered_statistics_widgets_b_2 ]),
             },
             multiple = True
         )  
@@ -658,17 +607,26 @@ def _(
 
     statistics_se = mo.hstack([mo.md('<br/><br/>')])
     return (
+        statistics__a,
+        statistics__b,
         statistics_ab,
         statistics_ij,
-        statistics_pt,
         statistics_se,
         statistics_to,
     )
 
 
 @app.cell
-def _(button_ab, button_ai, button_gs, button_ij, button_pt, button_se):
-    button_row = mo.hstack([button_pt, button_ai, button_ab, button_ij, button_gs, button_se], justify='center', gap=0.25)
+def _(
+    button__a,
+    button__b,
+    button_ab,
+    button_ai,
+    button_gs,
+    button_ij,
+    button_se,
+):
+    button_row = mo.hstack([button__a, button__b, button_ab, button_ij, button_ai, button_gs, button_se], justify='center', gap=0.25)
     return (button_row,)
 
 
@@ -702,9 +660,9 @@ def set_menu(menu: str) -> str:
         set_tab('Process - Tree')
 
     menu_map = {
-        'Process - Tree': MENU_PROCESS_FLOWCHART,                    # 1
+#        'Process - Tree': MENU_PROCESS_FLOWCHART,                    # 1
         'Overview by AI': MENU_AI_OVERVIEW,                          # 2
-        'A/B Comparison': MENU_A_B_FLOWCHARTS,                       # 3
+        '(A) <-> (B) Comparison': MENU_A_B_FLOWCHARTS,               # 3
         'Individual Journey Inspection': MENU_INDIVIDUAL_FLOWCHART,  # 4
         'Selected Statistics': MENU_GRAPHICAL_STATISTICS,            # 5
         'Settings': MENU_SETTINGS,                                   # 6       
@@ -718,17 +676,10 @@ def set_menu(menu: str) -> str:
 
 
 @app.cell
-def _(mermaid_diagram, ms_exclude_steps_pt, ms_include_steps_pt):
+def _():
     ##
     ## Tab Menu Items
     ##
-
-    tab_content_process_tree_total = mo.hstack([mo.vstack([
-                                     mo.md("<br/>"),
-                                     mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_pt.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_pt.value}")], widths=[1,1]),
-                                     mo.md("<br/><br/>"),
-                                     mo.mermaid(mermaid_diagram).style(width="150%", height="150%").center(),
-                                   ])]),
     return
 
 
@@ -736,32 +687,42 @@ def _(mermaid_diagram, ms_exclude_steps_pt, ms_include_steps_pt):
 def _(
     individual_journey_flowchart,
     llm_result_single_flowchart,
-    mermaid_diagram,
     mermaid_diagram_fc_a,
     mermaid_diagram_fc_b,
     ms_exclude_steps_fc_a,
     ms_exclude_steps_fc_b,
-    ms_exclude_steps_pt,
     ms_include_steps_fc_a,
     ms_include_steps_fc_b,
-    ms_include_steps_pt,
     settings,
     statistics_row_1,
     statistics_row_2,
 ):
-    tab_pt = mo.hstack([mo.vstack([
-                                  mo.md("<br/>"),
-                                  mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_pt.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_pt.value}")], widths=[1,1]),
-                                  mo.md("<br/><br/>"),
-                                  mo.mermaid(mermaid_diagram).style(width="150%", height="150%").center(),
-                              ])])
-
     tab_ai = mo.vstack([
                                   mo.md("<br/>"),
-                                  mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_pt.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_pt.value}")], widths=[1,1]),
+                                  mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_fc_a.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_fc_a.value}")], widths=[1,1]),
                                   mo.md("<br/><br/>"),
                                   mo.md(str(llm_result_single_flowchart)),                                  
                                 ])
+
+    tab__a = mo.hstack([
+                 mo.vstack([
+                     mo.md("<br/><br/>"),
+                     mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_fc_a.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_fc_a.value}")], widths=[1,1]),
+                     mo.md("<br/><br/>"),                                    
+                     mo.mermaid(mermaid_diagram_fc_a).style(width="150%", height="150%").center(),
+                 ]),
+             ],        
+             )
+
+    tab__b = mo.hstack([           
+                 mo.vstack([
+                     mo.md("<br/><br/>"),
+                     mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_fc_b.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_fc_b.value}")], widths=[1,1]),
+                     mo.md("<br/><br/>"),                                    
+                     mo.mermaid(mermaid_diagram_fc_b).style(width="150%", height="150%").center(),
+                 ]),
+             ],
+             )
 
     tab_ab = mo.hstack([
                  mo.vstack([
@@ -786,10 +747,10 @@ def _(
     tab_gs = mo.vstack([mo.md("</br>"), 
                                               statistics_row_1, 
                                               statistics_row_2,
-                                              mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_pt.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_pt.value}")], widths=[1,1], align="stretch"),
+                                              mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_fc_a.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_fc_a.value}")], widths=[1,1], align="stretch"),
                                              ])
     tab_se = mo.hstack([settings])
-    return tab_ab, tab_ai, tab_gs, tab_ij, tab_pt, tab_se
+    return tab__a, tab__b, tab_ab, tab_ai, tab_gs, tab_ij, tab_se
 
 
 @app.cell
@@ -833,50 +794,65 @@ def _(set_tab_color):
 @app.cell
 def gui__menu_buttons(kind_ab, kind_ai, kind_gs, kind_ij, kind_pt, kind_se):
 
-    button_pt = mo.ui.run_button(label='Process Tree',full_width=True, kind = kind_pt)
-    button_ai = mo.ui.run_button(label='AI-Generated Overview', full_width=True, kind=kind_ai)
-    button_ab = mo.ui.run_button(label='A/B Comparison', full_width=True, kind=kind_ab)
+    #button_pt = mo.ui.run_button(label='Process Tree',full_width=True, kind = kind_pt)
+    button__a = mo.ui.run_button(label='Process Tree (A)',full_width=True, kind = kind_pt)
+    button__b = mo.ui.run_button(label='Process Tree (B)',full_width=True, kind = kind_pt)
+    button_ai = mo.ui.run_button(label='AI-Generated Overview (A)', full_width=True, kind=kind_ai)
+    button_ab = mo.ui.run_button(label='(A) <-> (B) Comparison', full_width=True, kind=kind_ab)
     button_ij = mo.ui.run_button(label='Individual Journey inspection',full_width=True, kind=kind_ij)
-    button_gs = mo.ui.run_button(label='Graphical Statistics', full_width=True, kind=kind_gs)
+    button_gs = mo.ui.run_button(label='Graphical Statistics (A)', full_width=True, kind=kind_gs)
     button_se = mo.ui.run_button(label='Settings', full_width=True, kind=kind_se)
-    return button_ab, button_ai, button_gs, button_ij, button_pt, button_se
+    return (
+        button__a,
+        button__b,
+        button_ab,
+        button_ai,
+        button_gs,
+        button_ij,
+        button_se,
+    )
 
 
 @app.cell
 def _(
+    button__a,
+    button__b,
     button_ab,
     button_ai,
     button_gs,
     button_ij,
-    button_pt,
     button_se,
     filter_ab,
     filter_group_ai,
     filter_individual_journey,
-    filter_process_tree,
+    filter_process_tree_a,
+    filter_process_tree_b,
     filter_se,
     individual_journey_input_id,
     set_tab_color,
+    statistics__a,
+    statistics__b,
     statistics_ab,
     statistics_ij,
-    statistics_pt,
     statistics_se,
     statistics_to,
+    tab__a,
+    tab__b,
     tab_ab,
     tab_ai,
     tab_gs,
     tab_ij,
-    tab_pt,
     tab_se,
 ):
-    statistics = statistics_pt
+    statistics = statistics__a
 
     button_map = [
-        (button_pt, tab_pt, filter_process_tree, 'pt'),
+        (button__a, tab__a, filter_process_tree_a, 'a'),
+        (button__b, tab__b, filter_process_tree_b, 'b'),
         (button_ai, tab_ai, filter_group_ai, 'ai'),
         (button_ab, tab_ab, filter_ab, 'ab'),
         (button_ij, tab_ij, filter_individual_journey, 'ij'),
-        (button_gs, tab_gs, filter_process_tree, 'gs'),
+        (button_gs, tab_gs, filter_process_tree_a, 'gs'),
         (button_se, tab_se, filter_se, 'se'),
     ]
 
@@ -890,8 +866,12 @@ def _(
             if filter_group_value is not None:
                 filter_group = filter_group_value
 
-            if idx == 'pt' or idx == 'ai':
-                statistics = statistics_pt
+            if idx == 'ai':
+                statistics = statistics__a
+            elif idx == 'a':
+                statistics = statistics__a
+            elif idx == 'b':
+                statistics = statistics__b
             elif idx == 'ab':
                 statistics=statistics_ab
             elif idx == 'ij' and individual_journey_input_id.value != '':
@@ -908,20 +888,6 @@ def _(
 @app.cell
 def _(viewer):
     viewer
-    return
-
-
-@app.cell
-def _():
-    #menu_selected = set_menu(tabs.value)
-    #set_tab(tabs.value)
-    #print("Result: ", menu_selected)
-    #print("tabs-value: ", tabs.value)
-    return
-
-
-@app.cell
-def _():
     return
 
 
@@ -971,36 +937,6 @@ def _():
 
 @app.cell
 def _(
-    ms_exclude_steps_pt,
-    ms_include_steps_pt,
-    ms_meta_search_1,
-    ms_meta_search_2,
-    ms_meta_search_3,
-):
-    sql_parts_pt = filter_to_sql(ms_exclude_steps_pt, ms_include_steps_pt, ms_meta_search_1, ms_meta_search_2, ms_meta_search_3)
-    return (sql_parts_pt,)
-
-
-@app.cell
-def _(dropdown_projects, end_date, sql_parts_pt, start_date):
-    sql_filtered_statistics_pt_1 = sql_filtered_statistics_1(env=env, project=dropdown_projects.value, start_date=start_date.value, end_date=end_date.value, sql_parts=sql_parts_pt)
-    sql_filtered_statistics_pt_2 = sql_filtered_statistics_2(env=env, project=dropdown_projects.value, start_date=start_date.value, end_date=end_date.value, sql_parts=sql_parts_pt)
-    return sql_filtered_statistics_pt_1, sql_filtered_statistics_pt_2
-
-
-@app.cell
-def _(
-    dataframe_statistics_filtered_pt_1,
-    dataframe_statistics_filtered_pt_2,
-    end_date,
-    start_date,
-):
-    filtered_statistics_widgets_pt_1 = filtered_statistics_widgets(dataframe_statistics_filtered_pt_1, dataframe_statistics_filtered_pt_2, start_date.value, end_date.value)
-    return
-
-
-@app.cell
-def _(
     ms_exclude_steps_fc_a,
     ms_include_steps_fc_a,
     ms_meta_search_1_fc_a,
@@ -1039,12 +975,10 @@ def _(dropdown_projects, end_date_fc_b, sql_parts_b, start_date_fc_b):
 
 @app.cell
 def _(list_available_steps):
-    from tools.inputs.filters import handle_inc
-    from tools.inputs.filters import handle_exc
-    from tools.inputs.filters import get_state_inc, set_state_inc, get_state_exc, set_state_exc
+
 
     options_list = list_available_steps["step"]
-    return get_state_exc, get_state_inc, handle_exc, handle_inc, options_list
+    return
 
 
 @app.cell
@@ -1078,30 +1012,6 @@ def sql__statistics_total(dropdown_projects):
         engine=Exasol_Database_Engine
     )
     return (statistics_total,)
-
-
-@app.cell
-def sql__filtered_statistics_pt_1(sql_filtered_statistics_pt_1):
-    dataframe_statistics_filtered_pt_1 = mo.sql(
-        f"""
-        {sql_filtered_statistics_pt_1}
-        """,
-        output=False,
-        engine=Exasol_Database_Engine
-    )
-    return (dataframe_statistics_filtered_pt_1,)
-
-
-@app.cell
-def sql__filtered_statistics_pt_2(sql_filtered_statistics_pt_2):
-    dataframe_statistics_filtered_pt_2 = mo.sql(
-        f"""
-        {sql_filtered_statistics_pt_2}
-        """,
-        output=False,
-        engine=Exasol_Database_Engine
-    )
-    return (dataframe_statistics_filtered_pt_2,)
 
 
 @app.cell
@@ -1166,17 +1076,17 @@ def _():
 
 
 @app.cell
-def _(get_state_inc, handle_inc, options_list):
+def _():
     # Create the multiselect components
 
-    ms_include_steps_pt = mo.ui.multiselect(options=options_list, label="Include Steps", value=get_state_inc(), full_width=True, on_change=handle_inc)
-    return (ms_include_steps_pt,)
+    #ms_include_steps_pt = mo.ui.multiselect(options=options_list, label="Include Steps", value=get_state_inc(), full_width=True, on_change=handle_inc)
+    return
 
 
 @app.cell
-def _(get_state_exc, handle_exc, options_list):
-    ms_exclude_steps_pt = mo.ui.multiselect( options=options_list, label="Exclude Steps", value=get_state_exc(), full_width=True, on_change=handle_exc) 
-    return (ms_exclude_steps_pt,)
+def _():
+    #ms_exclude_steps_pt = mo.ui.multiselect( options=options_list, label="Exclude Steps", value=get_state_exc(), full_width=True, on_change=handle_exc) 
+    return
 
 
 @app.cell
@@ -1205,23 +1115,25 @@ def sql__build_flowchart():
 
 
 @app.cell
-def _(dropdown_projects, end_date, sql_parts_pt, start_date):
-    sql_build_flowchart = build_flowchart_structure(env=env, project=dropdown_projects.value, start_date=start_date.value, end_date=end_date.value, sql_parts=sql_parts_pt)
-    return (sql_build_flowchart,)
-
-
-@app.cell
-def _(dropdown_projects, end_date, sql_parts_a, sql_parts_b, start_date):
+def _(
+    dropdown_projects,
+    end_date_fc_a,
+    end_date_fc_b,
+    sql_parts_a,
+    sql_parts_b,
+    start_date_fc_a,
+    start_date_fc_b,
+):
     ##
-    ## A/B Comaprisons
+    ## (A) & (B) Trees
     ##
 
-    sql_build_flowchart_fc_a = build_flowchart_structure(env=env, project=dropdown_projects.value, start_date=start_date.value, end_date=end_date.value, sql_parts=sql_parts_a)
-    sql_build_flowchart_fc_b = build_flowchart_structure(env=env, project=dropdown_projects.value, start_date=start_date.value, end_date=end_date.value, sql_parts=sql_parts_b)
+    sql_build_flowchart_fc_a = build_flowchart_structure(env=env, project=dropdown_projects.value, start_date=start_date_fc_a.value, end_date=end_date_fc_a.value, sql_parts=sql_parts_a)
+    sql_build_flowchart_fc_b = build_flowchart_structure(env=env, project=dropdown_projects.value, start_date=start_date_fc_b.value, end_date=end_date_fc_b.value, sql_parts=sql_parts_b)
     return sql_build_flowchart_fc_a, sql_build_flowchart_fc_b
 
 
-@app.cell
+@app.cell(disabled=True)
 def _(sql_build_flowchart):
     dataframe_flowchart = mo.sql(
         f"""
@@ -1230,7 +1142,7 @@ def _(sql_build_flowchart):
         output=False,
         engine=Exasol_Database_Engine
     )
-    return (dataframe_flowchart,)
+    return
 
 
 @app.cell
@@ -1272,12 +1184,7 @@ def nodes_for_sql(data):
 
 
 @app.cell
-def visual__create_flowchart(
-    dataframe_flowchart,
-    dropdown_projects,
-    metric_selection_pt,
-    switch_flowchart_orientation,
-):
+def visual__create_flowchart(dropdown_projects, switch_flowchart_orientation):
 
 
     def get_belongs_to(used_nodes, connection) -> str:
@@ -1348,12 +1255,12 @@ def visual__create_flowchart(
     def create_journeys_flowchart(data, metric, connection) -> dict:
 
         mermaid_content = ''
-    
+
         if switch_flowchart_orientation.value:
             mermaid_content = "flowchart LR\n"
         else:
             mermaid_content = "flowchart TD\n"
-    
+
         metric = metric[0]
 
         # Track all nodes and their connections
@@ -1379,7 +1286,11 @@ def visual__create_flowchart(
         _subgraphs_list = get_belongs_to(visited_nodes, connection)
 
         mermaid_content += _subgraphs_list + "\n"
-        print(mermaid_content)
+
+    
+    
+        if DEBUG:
+            print(mermaid_content)
 
         sankey_content = "\n \n sankey \n \n"
 
@@ -1436,46 +1347,7 @@ def visual__create_flowchart(
         }
 
 
-    ##
-    ##
-    ##
-
-    with Exasol_Database_Engine.connect() as _con:        
-
-        mermaid_diagram = create_journeys_flowchart(dataframe_flowchart, metric_selection_pt.value, _con)['flowchart']
-        mermaid_diagram += "\n\n"
-
-        sankey_diagram = create_journeys_flowchart(dataframe_flowchart, metric_selection_pt.value, _con)['sankey']
-
-    if DEBUG:
-        print(mermaid_diagram)
-        print(sankey_diagram)
-    return (
-        create_journeys_flowchart,
-        generate_styles,
-        get_belongs_to,
-        mermaid_diagram,
-        sankey_diagram,
-    )
-
-
-@app.cell
-def _(sankey_diagram):
-    x = mo.mermaid(sankey_diagram)
-    return (x,)
-
-
-@app.cell
-def _(x):
-    x
-    return
-
-
-@app.cell
-def _(create_journeys_flowchart, dataframe_flowchart, metric_selection_pt):
-    with Exasol_Database_Engine.connect() as _con:   
-        print(create_journeys_flowchart(dataframe_flowchart, metric_selection_pt.value, _con)['flowchart'])
-    return
+    return create_journeys_flowchart, generate_styles, get_belongs_to
 
 
 @app.cell
@@ -1844,7 +1716,7 @@ def _(dropdown_projects):
 def llm__single_flowchart(
     ai_button,
     df_system_prompt,
-    mermaid_diagram,
+    mermaid_diagram_fc_a,
     slider_temperature_llm,
 ):
 
@@ -1858,7 +1730,7 @@ def llm__single_flowchart(
 
     if ai_button.value:
         #print("Inferencing LLM")
-        llm_result_single_flowchart=ResultText(llm_flowchart_analysis(_server, _token, _prompt, mermaid_diagram, slider_temperature_llm))
+        llm_result_single_flowchart=ResultText(llm_flowchart_analysis(_server, _token, _prompt, mermaid_diagram_fc_a, slider_temperature_llm))
     return (llm_result_single_flowchart,)
 
 
@@ -1872,26 +1744,33 @@ def _():
 
 @app.cell
 def _(df_system_prompt):
-    text_arera_system_prompt = mo.ui.text_area(value=df_system_prompt['prompt'][0], 
+    text_area_system_prompt = mo.ui.text_area(value=df_system_prompt['prompt'][0], 
                                                placeholder = 'System Prompt goees here...', 
                                                label = 'System Prompt', 
                                                full_width = True, 
                                                rows = 24, 
                                                max_length = 2048, 
-                                               debounce = 1)
+                                               debounce = True)
 
 
 
 
-    button_save_system_prompt = mo.ui.run_button(label='Save System Prompt for AI Overview', kind='success', on_change=save_system_prompt)
-    return button_save_system_prompt, text_arera_system_prompt
+    button_save_system_prompt = mo.ui.run_button(label='Save System Prompt for AI Overview', kind='success')
+    return button_save_system_prompt, text_area_system_prompt
 
 
 @app.cell
-def _(button_save_system_prompt, text_arera_system_prompt):
+def _(button_save_system_prompt, dropdown_projects, text_area_system_prompt):
+    if button_save_system_prompt.value:
+        save_system_prompt(env=env, project=dropdown_projects.value, prompt=text_area_system_prompt.value, connection=Exasol_Database_Engine)
+    return
+
+
+@app.cell
+def _(button_save_system_prompt, text_area_system_prompt):
     settings = mo.vstack([mo.accordion(
         {
-            "### Definition - AI System Prompt": mo.vstack([text_arera_system_prompt, button_save_system_prompt]),
+            "### Definition - AI System Prompt": mo.vstack([text_area_system_prompt, button_save_system_prompt]),
             "### Configuration - Steps": mo.md("Nothing!"),
             "### Configuration - Metas": mo.vstack([mo.md('Metas')]),
         },
@@ -1901,7 +1780,7 @@ def _(button_save_system_prompt, text_arera_system_prompt):
 
 
 @app.cell
-def _(dropdown_projects, end_date, start_date):
+def _(dropdown_projects, end_date_fc_a, start_date_fc_a):
     tst1 = mo.sql(
         f"""
         SELECT
@@ -1911,7 +1790,7 @@ def _(dropdown_projects, end_date, start_date):
             {env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
         WHERE
             PROJECT_ID = '{dropdown_projects.value}'
-            AND EVENT_TIME BETWEEN DATE '{start_date.value}' AND DATE  '{end_date.value}'
+            AND EVENT_TIME BETWEEN DATE '{start_date_fc_a.value}' AND DATE  '{end_date_fc_a.value}'
         GROUP BY
             local.DATE_DAY
         ORDER BY
@@ -1951,7 +1830,7 @@ def _(tst1):
 
 
 @app.cell
-def _(dropdown_projects, end_date, start_date):
+def _(dropdown_projects, end_date_fc_a, start_date_fc_a):
     statistics_graph_steps = mo.sql(
         f"""
         SELECT
@@ -1961,7 +1840,7 @@ def _(dropdown_projects, end_date, start_date):
             {env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
         WHERE
             PROJECT_ID = '{dropdown_projects.value}'
-            AND EVENT_TIME BETWEEN DATE '{start_date.value}' AND DATE  '{end_date.value}'
+            AND EVENT_TIME BETWEEN DATE '{start_date_fc_a.value}' AND DATE  '{end_date_fc_a.value}'
         GROUP BY
             STEP
         ORDER BY
@@ -2018,7 +1897,7 @@ def _(chart_1, chart_2, chart_3, path_statistics):
 
 
 @app.cell
-def _(dropdown_projects, end_date, start_date):
+def _(dropdown_projects, end_date_fc_a, start_date_fc_a):
     statistics_heatmap_steps_month = mo.sql(
         f"""
         SELECT
@@ -2029,7 +1908,7 @@ def _(dropdown_projects, end_date, start_date):
             {env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS
         WHERE
             PROJECT_ID = '{dropdown_projects.value}'
-            AND EVENT_TIME BETWEEN DATE '{start_date.value}' AND DATE  '{end_date.value}'
+            AND EVENT_TIME BETWEEN DATE '{start_date_fc_a.value}' AND DATE  '{end_date_fc_a.value}'
         GROUP BY
             local.DATE_MONTH, STEP
         ORDER BY
@@ -2206,60 +2085,6 @@ def _(path_statistics_bin_dropdown, statistics_path_analysis):
 def _(path_statistics_bin_dropdown, path_statistics_chart):
     path_statistics = mo.hstack([mo.vstack([path_statistics_bin_dropdown, path_statistics_chart])],widths=[1,1])
     return (path_statistics,)
-
-
-@app.cell
-def _():
-    mo.mermaid('''
-
-    sankey
-
-    ENTER Baggage Drop:,LEAVE Baggage Drop:,34995
-    ENTER Boarding Gate Dom:,BOARD Aircraft Dom:,86506 
-    ENTER Boarding Gate Dom:,DENIED Boarding Dom:,4650
-    ENTER Boarding Gate Int:,BOARD Aircraft Int:,28557
-    ENTER Boarding Gate Int:,DENIED Boarding Int:,1506
-    ENTER Check-In:,LEAVE Check-In:,36793
-    ENTER Departure Hall:,ENTER Security Check:,49430
-    ENTER Departure Hall:,ENTER Baggage Drop:,34995 
-    ENTER Departure Hall:,LEAVE Departure Hall:,2413 
-    ENTER Departure Hall:,ENTER Check-In:,36793
-    ENTER Dining Area Dom:,LEAVE Dining Area Dom:,43268 
-    ENTER Dining Area Int:,LEAVE Dining Area Int:,11338 
-    ENTER Duty Free Dom:,LEAVE Duty Free Dom:,40918 
-    ENTER Duty Free Int:,LEAVE Duty Free Int:,13646 
-    ENTER Lounge Dom:,LEAVE Lounge Dom:,31595 
-    ENTER Lounge Int:,LEAVE Lounge Int:,11163 
-    ENTER Passport Control:,LEAVE Passport Control:,30065 
-    ENTER Security Check:,LEAVE Security Check:,121218
-    LEAVE Baggage Drop:,ENTER Security Check:,34995 
-    LEAVE Check-In:,ENTER Security Check:,36793 
-    LEAVE Dining Area Dom:,ENTER Boarding Gate Dom:,32338 
-    LEAVE Dining Area Dom:,ENTER Duty Free Dom:,9117 
-    LEAVE Dining Area Dom:,ENTER Lounge Dom:,7065 
-    LEAVE Dining Area Int:,ENTER Lounge Int:,1741 
-    LEAVE Dining Area Int:,ENTER Boarding Gate Int:,8484 
-    LEAVE Dining Area Int:,ENTER Duty Free Int:,2411 
-    LEAVE Duty Free Dom:,ENTER Dining Area Dom:,15054 
-    LEAVE Duty Free Dom:,ENTER Boarding Gate Dom:,21271 
-    LEAVE Duty Free Dom:,ENTER Lounge Dom:,9007 
-    LEAVE Duty Free Int:,ENTER Lounge Int:,2991 
-    LEAVE Duty Free Int:,ENTER Boarding Gate Int:,7156 
-    LEAVE Duty Free Int:,ENTER Dining Area Int:,4977 
-    ''')
-    return
-
-
-@app.cell
-def _(sankey_diagram):
-    mo.mermaid(f"{sankey_diagram}")
-    return
-
-
-@app.cell
-def _(sankey_diagram):
-    print(sankey_diagram)
-    return
 
 
 if __name__ == "__main__":
