@@ -1,49 +1,73 @@
+##############################################################################
+## Disallow the selection of identical steps in exclude and include filters ##
+##############################################################################
+
 import marimo as mo
 
-##
-## Disallow the selection of identical steps in exclude and include filter
-## --
-## Filter Handling for Single Flowchart
-##
+###################################
+## Flowchart -A- Filter Handling ##
+###################################
+
+get_state_fc_a, set_state_fc_a = mo.state({
+    "include": [],
+    "exclude": [],
+})
+
+def handle_inc_fc_a(new_value: list):
+    state = get_state_fc_a()
+
+    new_inc = new_value
+    new_exc = [x for x in state["exclude"] if x not in new_inc]
+
+    set_state_fc_a({
+        "include": new_inc,
+        "exclude": new_exc,
+    })
 
 
+def handle_exc_fc_a(new_value: list):
+    state = get_state_fc_a()
 
-get_state_inc, set_state_inc = mo.state([])
-get_state_exc, set_state_exc = mo.state([])
+    new_exc = new_value
+    new_inc = [x for x in state["include"] if x not in new_exc]
 
-def handle_inc(new_value):
-    """
-    Handler for the include multiselect (Single Process View).
-    Removes any newly selected items from the second multiselect's value.
-    """
-
-    current_value_exc = get_state_exc()
-    
-    # Find which items in new_value are not in current_value2
-    
-    to_remove_from_exc = [item for item in new_value if item in current_value_exc]
-    
-    if to_remove_from_exc:
-      
-        updated_value_exc = [item for item in current_value_exc if item not in to_remove_from_exc]
-        set_state_exc(updated_value_exc)
-      
-    set_state_inc(new_value)
+    set_state_fc_a({
+        "include": new_inc,
+        "exclude": new_exc,
+    })
 
 
-def handle_exc(new_value):
-    """
-    Handler for the second multiselect.
-    Removes any newly selected items from the first multiselect's value.
-    """
+###################################
+## Flowchart -B- Filter Handling ##
+###################################
+
+get_state_fc_b, set_state_fc_b = mo.state({
+    "include": [],
+    "exclude": [],
+})
+
+def handle_inc_fc_b(new_value: list):
+    state = get_state_fc_b()
+
+    new_inc = new_value
+    new_exc = [x for x in state["exclude"] if x not in new_inc]
+
+    set_state_fc_b({
+        "include": new_inc,
+        "exclude": new_exc,
+    })
+
+
+def handle_exc_fc_b(new_value: list):
+    state = get_state_fc_b()
+
+    new_exc = new_value
+    new_inc = [x for x in state["include"] if x not in new_exc]
+
+    set_state_fc_b({
+        "include": new_inc,
+        "exclude": new_exc,
+    })
+
+
   
-    current_value_inc = get_state_inc()
-  
-    # Find which items in new_value are not in current_value1
-    to_remove_from_inc = [item for item in new_value if item in current_value_inc]
-  
-    if to_remove_from_inc:
-        updated_value_inc = [item for item in current_value_inc if item not in to_remove_from_inc]
-        set_state_inc(updated_value_inc)
-      
-    set_state_exc(new_value)
