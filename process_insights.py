@@ -623,9 +623,33 @@ def _(
 
 
 @app.cell
-def _(switch_operations_mode):
-    print(switch_operations_mode.value)
+def _():
+    #####################################
+    ## Menu - Buttons                  ##
+    ##---------------------------------##
+    ## Better visuual effect than tabs ##
+    #####################################
     return
+
+
+@app.cell
+def gui__menu_buttons():
+    button__a = mo.ui.run_button(label='Process Tree (A)',full_width=True)
+    button__b = mo.ui.run_button(label='Process Tree (B)',full_width=True)
+    button_ai = mo.ui.run_button(label='AI-Generated Overview (A)', full_width=True)
+    button_ab = mo.ui.run_button(label='(A) <-> (B) Comparison', full_width=True)
+    button_ij = mo.ui.run_button(label='Individual Journey inspection',full_width=True)
+    button_gs = mo.ui.run_button(label='Graphical Statistics (A)', full_width=True)
+    button_se = mo.ui.run_button(label='Settings', full_width=True)
+    return (
+        button__a,
+        button__b,
+        button_ab,
+        button_ai,
+        button_gs,
+        button_ij,
+        button_se,
+    )
 
 
 @app.cell
@@ -665,8 +689,6 @@ def _(statistics):
 
 
 @app.function
-# get_tab, set_tab = mo.state('')
-
 def set_menu(menu: str) -> str:
 
     print(menu)
@@ -714,12 +736,7 @@ def _(
     statistics_row_2,
     switch_operations_mode,
 ):
-    tab_ai = mo.vstack([
-                                  mo.md("<br/>"),
-                                  mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_fc_a.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_fc_a.value}")], widths=[1,1]),
-                                  mo.md("<br/><br/>"),
-                                  mo.md(str(llm_result_single_flowchart)),                                  
-                                ])
+
 
     tab__a = mo.hstack([
                  mo.vstack([
@@ -730,6 +747,7 @@ def _(
                  ]),
              ],        
              )
+
     if switch_operations_mode.value:
         tab__b = mo.hstack([           
                      mo.vstack([
@@ -761,6 +779,13 @@ def _(
 
     tab_ij = mo.vstack([mo.md("</br>"), mo.mermaid(individual_journey_flowchart).style(width="100%").center()])
 
+    tab_ai = mo.vstack([
+                                  mo.md("<br/>"),
+                                  mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_fc_a.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_fc_a.value}")], widths=[1,1]),
+                                  mo.md("<br/><br/>"),
+                                  mo.md(str(llm_result_single_flowchart)),                                  
+                                ])
+
     tab_gs = mo.vstack([mo.md("</br>"), 
                                               statistics_row_1, 
                                               statistics_row_2,
@@ -768,59 +793,6 @@ def _(
                                              ])
     tab_se = mo.hstack([settings])
     return tab__a, tab__b, tab_ab, tab_ai, tab_gs, tab_ij, tab_se
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _(xxx):
-    kind_pt = kind_ai = kind_ab = kind_ij = kind_gs = kind_se = 'neutral'
-
-
-    def set_tab_color(sel_tab: str):
-
-        global kind_pt, kind_ai, kind_ab, kind_ij, kind_gs, kind_se
-        global xxx
-
-        kind_pt = kind_ai = kind_ab = kind_ij = kind_gs = kind_se = 'neutral'
-
-        if sel_tab == 'pt':
-            kind_pt = 'neutral'
-        elif sel_tab == 'ai':
-            kind_ai = 'neutral'
-        elif sel_tab == 'ab':
-            kind_ab = 'neutral'
-        elif sel_tab == 'ij':
-            kind_ij = 'neutral'
-        elif sel_tab == 'gs':
-            kind_gs = 'neutral'
-        elif sel_tab == 'se':
-            kind_se = 'neutral'
-    return kind_ab, kind_ai, kind_gs, kind_ij, kind_pt, kind_se, set_tab_color
-
-
-@app.cell
-def gui__menu_buttons(kind_ab, kind_ai, kind_gs, kind_ij, kind_pt, kind_se):
-
-    button__a = mo.ui.run_button(label='Process Tree (A)',full_width=True, kind = kind_pt)
-    button__b = mo.ui.run_button(label='Process Tree (B)',full_width=True, kind = kind_pt)
-    button_ai = mo.ui.run_button(label='AI-Generated Overview (A)', full_width=True, kind=kind_ai)
-    button_ab = mo.ui.run_button(label='(A) <-> (B) Comparison', full_width=True, kind=kind_ab)
-    button_ij = mo.ui.run_button(label='Individual Journey inspection',full_width=True, kind=kind_ij)
-    button_gs = mo.ui.run_button(label='Graphical Statistics (A)', full_width=True, kind=kind_gs)
-    button_se = mo.ui.run_button(label='Settings', full_width=True, kind=kind_se)
-    return (
-        button__a,
-        button__b,
-        button_ab,
-        button_ai,
-        button_gs,
-        button_ij,
-        button_se,
-    )
 
 
 @app.cell
@@ -839,7 +811,6 @@ def _(
     filter_process_tree_b,
     filter_se,
     individual_journey_input_id,
-    set_tab_color,
     statistics__a,
     statistics__b,
     statistics_ab,
@@ -856,6 +827,9 @@ def _(
     tab_se,
 ):
     statistics = statistics__a
+
+    if get_tab() == '':
+        set_tab('a')
 
     if switch_operations_mode.value:
         button_map = [
@@ -882,13 +856,10 @@ def _(
     for button, tab, filter_group_value, idx in button_map:
         if button.value:
             viewer = tab
-            set_tab_color(idx)
             if filter_group_value is not None:
                 filter_group = filter_group_value
 
-            if idx == 'ai':
-                statistics = statistics__a
-            elif idx == 'a':
+            if idx == 'a':
                 statistics = statistics__a
             elif idx == 'b':
                 statistics = statistics__b
@@ -896,6 +867,8 @@ def _(
                 statistics=statistics_ab
             elif idx == 'ij' and individual_journey_input_id.value != '':
                 statistics = statistics_ij
+            elif idx == 'ai':
+                statistics = statistics__a
             elif idx == 'gs':
                 statistics = statistics_to
             elif idx == 'se':
