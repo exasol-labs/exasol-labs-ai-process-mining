@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.16.5"
+__generated_with = "0.17.7"
 app = marimo.App(
     width="full",
     app_title="Kea AI - Process Insights",
@@ -300,12 +300,10 @@ def dropdown__projects_list(list_available_projects):
 
 @app.cell(hide_code=True)
 def _(dropdown_projects):
-    mo.md(
-        f"""
+    mo.md(f"""
     # {dropdown_projects.selected_key}
     </br>
-    """
-    )
+    """)
     return
 
 
@@ -473,7 +471,7 @@ def ui__filter_groups(
     filter_se = mo.hstack([])
 
     default_temp = 0.75
-    slider_temperature_llm = mo.ui.slider(label='Temperature for LLM', start=0, stop=1, step=0.05, full_width=True, show_value=True, value=default_temp)
+    slider_temperature_llm = mo.ui.slider(label='Temperature for LLM', start=0, stop=1, step=0.05, debounce=True, full_width=True, show_value=True, value=default_temp)
     ai_button = mo.ui.run_button(label='AI based Analysis of Process Tree',  full_width=True) 
     filter_group_ai = mo.vstack([
                         mo.hstack([ai_button ]),
@@ -498,7 +496,17 @@ def ui__filter_groups(
 
 
 @app.cell
-def visual__sidebar(dropdown_projects, filter_group, switch_operations_mode):
+def visual__sidebar(
+    button_se,
+    dropdown_projects,
+    filter_group,
+    switch_operations_mode,
+):
+    filters_heading = '##Filters and Actions'
+    if button_se.value:
+        filters_heading = ''
+
+
     mo.sidebar(
         [
             mo.md('# _Kea AI - Process Insights_'),
@@ -510,7 +518,7 @@ def visual__sidebar(dropdown_projects, filter_group, switch_operations_mode):
             mo.md("</br>"),
             switch_operations_mode,
             mo.md('</br>'),
-            mo.md("##Filters and Actions"),
+            mo.md(filters_heading),
             mo.md("</br>"),
 
             filter_group,
@@ -678,7 +686,9 @@ def _(button_row):
 
 @app.cell
 def _():
-    mo.md(r"""<br/>""")
+    mo.md(r"""
+    <br/>
+    """)
     return
 
 
@@ -686,31 +696,6 @@ def _():
 def _(statistics):
     statistics
     return
-
-
-@app.function
-def set_menu(menu: str) -> str:
-
-    print(menu)
-    print("get_tab():", get_tab())
-
-    if get_tab() == '':
-        set_tab('Process - Tree')
-
-    menu_map = {
-#        'Process - Tree': MENU_PROCESS_FLOWCHART,                    # 1
-        'Overview by AI': MENU_AI_OVERVIEW,                          # 2
-        '(A) <-> (B) Comparison': MENU_A_B_FLOWCHARTS,               # 3
-        'Individual Journey Inspection': MENU_INDIVIDUAL_FLOWCHART,  # 4
-        'Selected Statistics': MENU_GRAPHICAL_STATISTICS,            # 5
-        'Settings': MENU_SETTINGS,                                   # 6       
-    }
-
-    #set_tab(menu_map.get(menu))
-
-    res = menu_map.get(menu)
-
-    return res
 
 
 @app.cell
@@ -734,9 +719,12 @@ def _(
     settings,
     statistics_row_1,
     statistics_row_2,
+    statistics_row_3,
     switch_operations_mode,
 ):
-
+    #####################################
+    ## Content for the individual tabs ##
+    #####################################
 
     tab__a = mo.hstack([
                  mo.vstack([
@@ -787,12 +775,20 @@ def _(
                                 ])
 
     tab_gs = mo.vstack([mo.md("</br>"), 
-                                              statistics_row_1, 
+                        mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_fc_a.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_fc_a.value}")], widths=[1,1], align="stretch"),                      
+                        statistics_row_1, 
                                               statistics_row_2,
-                                              mo.hstack([mo.md(f"**Including Steps**: {ms_include_steps_fc_a.value}"), mo.md(f"**Excluding Steps**: {ms_exclude_steps_fc_a.value}")], widths=[1,1], align="stretch"),
+                                              statistics_row_3,
+
                                              ])
     tab_se = mo.hstack([settings])
     return tab__a, tab__b, tab_ab, tab_ai, tab_gs, tab_ij, tab_se
+
+
+@app.cell
+def _():
+    get_trigger, set_trigger = mo.state(0)
+    return
 
 
 @app.cell
@@ -827,9 +823,6 @@ def _(
     tab_se,
 ):
     statistics = statistics__a
-
-    if get_tab() == '':
-        set_tab('a')
 
     if switch_operations_mode.value:
         button_map = [
@@ -1152,6 +1145,12 @@ def _(
     else:
         sql_build_flowchart_fc_b = "SELECT '1'"
     return sql_build_flowchart_fc_a, sql_build_flowchart_fc_b
+
+
+@app.cell
+def _(sql_build_flowchart_fc_a):
+    print(sql_build_flowchart_fc_a)
+    return
 
 
 @app.cell
@@ -1852,6 +1851,14 @@ def _(dropdown_projects, end_date_fc_a, start_date_fc_a):
 
 
 @app.cell
+def _():
+    ###################
+    ## Chart Section ##
+    ################### 
+    return
+
+
+@app.cell
 def _(tst1):
     # replace _df with your data source
     chart_1 = (
@@ -1934,7 +1941,7 @@ def _(statistics_graph_steps):
 
 
 @app.cell
-def _(chart_1, chart_2, chart_3, path_statistics):
+def _(chart_1, chart_2, chart_3, path_statistics, widget_journeys):
     statistics_row_1 = mo.hstack(
         [chart_1, chart_2],
         widths="equal",
@@ -1942,7 +1949,9 @@ def _(chart_1, chart_2, chart_3, path_statistics):
     )
 
     statistics_row_2 = mo.hstack([chart_3, path_statistics], widths='equal', gap=2, align='stretch')
-    return statistics_row_1, statistics_row_2
+
+    statistics_row_3 = mo.hstack([widget_journeys], widths='equal', gap=2, align='stretch')
+    return statistics_row_1, statistics_row_2, statistics_row_3
 
 
 @app.cell
@@ -2056,10 +2065,11 @@ def _():
         WITH ordered_paths AS (
             SELECT
                 EVENT_ID,
-                LISTAGG(STEP, ' -> ')
+                LISTAGG(J.STEP, ' -> ')
                     WITHIN GROUP (ORDER BY EVENT_TIME ASC) AS full_path,
-                COUNT(*) AS path_length
-            FROM EXASOL_DIB_PROCESS_MINING.JOURNEYS
+                COUNT(*) AS path_length,
+                SUM(S.SCORE) AS score
+            FROM {env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.JOURNEYS J JOIN {env['KEA_PROCESS_INSIGHTS_EXA_DB_SCHEMA']}.STEPS S ON J.STEP = S.STEP
             GROUP BY EVENT_ID
         ),
 
@@ -2067,14 +2077,16 @@ def _():
             SELECT
                 full_path,
                 path_length,
+                score,
                 COUNT(*) AS journey_count
             FROM ordered_paths
-            GROUP BY full_path, path_length
+            GROUP BY full_path, path_length, score
         )
 
         SELECT
             journey_count,
             path_length,
+            score,
             full_path
         FROM distinct_paths
         WHERE journey_count >= 1000
@@ -2134,6 +2146,34 @@ def _(path_statistics_bin_dropdown, statistics_path_analysis):
 def _(path_statistics_bin_dropdown, path_statistics_chart):
     path_statistics = mo.hstack([mo.vstack([path_statistics_bin_dropdown, path_statistics_chart])],widths=[1,1])
     return (path_statistics,)
+
+
+@app.cell
+def _(statistics_path_analysis):
+    range_slider_journeys = mo.ui.range_slider(start=0, stop=statistics_path_analysis.shape[0], step=1, value=[2, 50], full_width=True)
+    return (range_slider_journeys,)
+
+
+@app.cell
+def _(range_slider_journeys, statistics_path_analysis):
+    _table_source = []
+
+    rank = 1
+
+    for i in range(range_slider_journeys.value[0], range_slider_journeys.value[1]):
+        _table_source.append({
+            "Rank": rank,
+            "# Journeys": statistics_path_analysis['journey_count'][i],
+            "# Steps": statistics_path_analysis['path_length'][i],
+            'Score': statistics_path_analysis['score'][i],
+            "Journey Path": statistics_path_analysis['full_path'][i]
+        })
+        rank += 1
+
+
+    table_journeys = mo.ui.table(data=_table_source, pagination=True,wrapped_columns= ['Journey Path'], page_size=25,freeze_columns_left=['Rank', '# Journeys', '# Steps', 'Score'], selection=None, show_column_summaries="stats")
+    widget_journeys = mo.vstack([range_slider_journeys, table_journeys])    
+    return (widget_journeys,)
 
 
 if __name__ == "__main__":
