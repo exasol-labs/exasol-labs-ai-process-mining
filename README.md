@@ -81,10 +81,9 @@ It will take a moment until the application is available for usage.
 
 ### Usage
 
-Please see the following articles for further information:
+Please see the following article for further information:
 
-    https://www.exasol.com/blog/process-mining-with-exasol/
-
+[Why Your BI Stack Knows More About Your Processes Than You Think](https://www.exasol.com/blog/process-mining-with-exasol/)
 
 
 ## You do not have access to an Exasol Database?
