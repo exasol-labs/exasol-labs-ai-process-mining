@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.17.7"
+__generated_with = "0.19.2"
 app = marimo.App(
     width="full",
     app_title="Kea AI - Process Insights",
@@ -1347,6 +1347,7 @@ def visual__create_flowchart(dropdown_projects, switch_flowchart_orientation):
         node_styles = generate_styles(visited_nodes, connection)
 
         flowchart = mermaid_content + "\n\n" + str(node_styles)
+        print(flowchart)
 
         return {
                  "flowchart": flowchart,
@@ -1354,6 +1355,11 @@ def visual__create_flowchart(dropdown_projects, switch_flowchart_orientation):
 
         }
     return create_journeys_flowchart, generate_styles, get_belongs_to
+
+
+@app.cell
+def _():
+    return
 
 
 @app.cell
@@ -1423,6 +1429,7 @@ def _(dropdown_projects, individual_journey_input_id):
     WHERE
         J.PROJECT_ID = '{dropdown_projects.value}' AND
         EVENT_ID = '{individual_journey_input_id.value}'
+
 
 
     """
